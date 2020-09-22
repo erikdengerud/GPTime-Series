@@ -14,15 +14,12 @@ logger = logging.getLogger(__name__)
 
 def MASE(actual: np.array, predicted: np.array, scale: np.array) -> float:
     """ Calculating Mean Absolute Scaled Error """
-    return np.mean(np.mean(np.abs(actual - predicted)) / scale)
+    return np.mean(np.nanmean(np.abs(actual - predicted), axis=1) / scale)
 
 
 def SMAPE(actual: np.array, predicted: np.array) -> float:
     """ Calculating Symmetric Mean Absolute Prediction Error """
-    nz = np.where(actual > 0)
-    Pz = predicted[nz]
-    Az = actual[nz]
-    return 200.0 * np.mean(np.abs(Az - Pz) / (np.abs(Az) + np.abs(Pz)))
+    return 200.0 * np.nanmean(np.abs(actual - predicted) / (np.abs(actual) + np.abs(predicted)), axis=(1,0))
 
 
 def OWA(mase: float, smape: float) -> float:

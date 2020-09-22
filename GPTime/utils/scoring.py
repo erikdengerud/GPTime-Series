@@ -9,9 +9,6 @@ import glob
 import logging
 import numpy as np
 from typing import Dict, List, Tuple
-
-from metrics import MASE, SMAPE, OWA
-
 import sys
 
 sys.path.append("")
@@ -19,6 +16,7 @@ sys.path.append("")
 logger = logging.getLogger(__name__)
 
 from GPTime.config import cfg
+from GPTime.utils.metrics import MASE, SMAPE, OWA
 
 
 def multi_step_predict(
@@ -50,7 +48,7 @@ def multi_step_predict(
     return predictions
 
 
-def period_season_file(fname: str, period_dict: Dict) -> Tuple[int, str]:
+def period_num_str_file(fname: str, period_dict: Dict) -> Tuple[int, str]:
     for p in period_dict.keys():
         if p.lower() in fname.lower():
             return period_dict[p], p
@@ -58,7 +56,7 @@ def period_season_file(fname: str, period_dict: Dict) -> Tuple[int, str]:
     return 1, ""
 
 
-def create_training_data(fname: str, memory: int, season: int) -> np.array:
+def create_training_data(fname: str, memory: int, period_num: int) -> np.array:
     frequency_tmp = []
     try:
         df = pd.read_csv(fname, index_col=0)
@@ -75,7 +73,7 @@ def create_training_data(fname: str, memory: int, season: int) -> np.array:
             frequency_tmp.append(
                 np.pad(
                     ts,
-                    pad_width=(model.memory - len(s), 0),
+                    pad_width=(model.memory - len(ts), 0),
                     mode="constant",
                     constant_values=0,
                 )
@@ -84,106 +82,108 @@ def create_training_data(fname: str, memory: int, season: int) -> np.array:
             frequency_tmp.append(ts[-model.memory :])
 
     mase_scale = (
-        df.diff(periods=season, axis=1).abs().mean(axis=1).reset_index(drop=True)
+        df.diff(periods=period_num, axis=1).abs().mean(axis=1).reset_index(drop=True)
     )
 
     return frequency_tmp, mase_scale
 
 
-def predict_M4(model: nn.Module) -> List:
+def predict_M4(model: nn.Module) -> np.array:
     """ Predicting M4 using a model provided. """
     assert hasattr(model, "forward")
     assert hasattr(model, "memory")
     model.eval()
 
     all_train_files = glob.glob(cfg.path.m4_train + "*")
-
-    all_predictions = []
+    assert len(all_train_files) > 0, f"Did not find data in {cfg.path.m4_train}"
+    frames = []
     for fname in all_train_files:
-        season, period = period_season_file(
+        period_num, period_str = period_num_str_file(
             fname=fname, period_dict=cfg.scoring.m4.periods
         )
-        logger.info(f"Predicting {period}")
         frequency_train_data, scale = create_training_data(
-            fname=fname, memory=model.memory, season=season
+            fname=fname, memory=model.memory, period_num=period_num
         )
-
         predictions = multi_step_predict(
             model=model,
-            horizon=cfg.scoring.m4.horizons[period],
+            horizon=cfg.scoring.m4.horizons[period_str],
             train_data=frequency_train_data,
             mase_scale=cfg.scoring.m4.scale_mase,
             scale=scale,
         )
+        df = pd.DataFrame(predictions)
+        frames.append(df)
 
-        for prediction in predictions:
-            all_predictions.append(prediction)
+    df_all = pd.concat(frames)
+    predictions = df_all.values
 
-    return all_predictions
+    return df_all.values
 
-
-def score_M4(predictions: List) -> Tuple[Dict]:
+def score_M4(predictions: np.array, df_results_name:str="GPTime/results/M4/test.csv") -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
+    """
     metrics = {}
     frequency_metrics = {}
     for metric in cfg.scoring.metrics.keys():
         if cfg.scoring.metrics[metric]:
             metrics[metric] = []
             frequency_metrics[metric] = []
+    """
+    frequency_metrics:Dict[str, Dict[str, float]]= {}
     # Read in and prepare the data
     all_test_files = glob.glob(cfg.path.m4_test + "*")
     all_train_files = glob.glob(cfg.path.m4_test + "*")
     crt_pred_index = 0
-    tot_mase = 0
-    tot_smape = 0
+    tot_mase = 0.0
+    tot_smape = 0.0
     for fname_train, fname_test in zip(all_train_files, all_test_files):
-        # logger.info(fname_test)
         df_train = pd.read_csv(fname_train, index_col=0)
         df_test = pd.read_csv(fname_test, index_col=0)
 
-        season, period = period_season_file(
+        period_num, period_str = period_num_str_file(
             fname=fname_train, period_dict=cfg.scoring.m4.periods
         )
-        horizon = cfg.scoring.m4.horizons[period]
+        horizon = cfg.scoring.m4.horizons[period_str]
         scale = (
-            df_train.diff(periods=season, axis=1)
+            df_train.diff(periods=period_num, axis=1)
             .abs()
             .mean(axis=1)
             .reset_index(drop=True)
-        )
+        ).values
 
         Y = df_test.values[:, :horizon]
-        # logger.info(f"horizon : {horizon}")
-        # logger.info(f"df_test.isna().sum() : {df_test.isna().sum()}")
-        # logger.info(f"crt_pred_index: {crt_pred_index}")
-        # logger.info(f"Y.shape[0]: {Y.shape[0]}")
         index = crt_pred_index + Y.shape[0]
-        # logger.info(type(index))
-        predicted = np.array(predictions[crt_pred_index:index])
-        # logger.info(f"np.sum(np.isnan(Y)): {np.sum(np.isnan(Y))}")
-        assert np.sum(np.isnan(Y)) == 0
-        assert Y.shape == predicted.shape
-        # logger.info(f"Y.shape: {Y.shape}")
-        # logger.info(f"predicted.shape: {predicted.shape}")
+        predicted = predictions[crt_pred_index:index, :horizon]
+
+        assert np.sum(np.isnan(Y)) == 0, "NaNs in Y"
+        assert np.sum(np.isnan(predicted)) == 0, "NaNs in predictions"
+        assert Y.shape == predicted.shape, "Y and predicted have different shapes"
 
         mase_freq = MASE(Y, predicted, scale)
         smape_freq = SMAPE(Y, predicted)
-        # logger.info(period)
         tot_mase += mase_freq * Y.shape[0]
         tot_smape += smape_freq * Y.shape[0]
-        logger.info(f"{period:<9} MASE : {mase_freq}")
-        logger.info(f"{period:<9} SMAPE: {smape_freq}")
+
+        frequency_metrics[period_str] = {}
+        frequency_metrics[period_str]["MASE"] = mase_freq
+        frequency_metrics[period_str]["SMAPE"] = smape_freq
+        frequency_metrics[period_str]["OWA"] = np.nan
 
         crt_pred_index += Y.shape[0]
 
     tot_mase = tot_mase / crt_pred_index
     tot_smape = tot_smape / crt_pred_index
-    logger.info(f"TOTAL MASE : {tot_mase}")
-    logger.info(f"TOTAL SMAPE: {tot_smape}")
     tot_owa = OWA(tot_mase, tot_smape)
-    logger.info(f"TOTAL OWA: {tot_owa}")
 
-    return tot_mase, tot_smape, tot_owa
+    frequency_metrics["GLOBAL"] = {}
+    frequency_metrics["GLOBAL"]["MASE"] = tot_mase
+    frequency_metrics["GLOBAL"]["SMAPE"] = tot_smape
+    frequency_metrics["GLOBAL"]["OWA"] = tot_owa
+
+    df = pd.DataFrame(frequency_metrics).T
+    df.to_csv(df_results_name)
+
+    return frequency_metrics
 
 
 if __name__ == "__main__":
@@ -206,11 +206,14 @@ if __name__ == "__main__":
             return out
 
     model = MLP(in_features=10, out_features=1, n_hidden=16).double()
-
     # predict
     preds = predict_M4(model=model)
-    # logger.info(len(preds))
-    score_M4(preds)
+    logger.info(len(preds))
+    d = score_M4(preds)
+    print(d)
+    df = pd.DataFrame(d).T
+    logger.debug(df.head(10))
+    logger.debug(df.shape)
 
     # score
 
@@ -224,56 +227,56 @@ def plot_importance():
     return 0
 
 
-def predict_electricity(model: nn.Module) -> List:
+def predict_electricity(model: nn.Module) -> Dict:
     """ Predicting M4 using a model provided. """
 
-    return 0
+    return {}
 
 
 def score_electricity(actual: List, predictions: List) -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
-    return 0
+    return {}
 
 
-def predict_traffic(model: nn.Module) -> List:
+def predict_traffic(model: nn.Module) -> Dict:
     """ Predicting M4 using a model provided. """
 
-    return 0
+    return {}
 
 
 def score_traffic(actual: List, predictions: List) -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
-    return 0
+    return {}
 
 
-def predict_tourism(model: nn.Module) -> List:
+def predict_tourism(model: nn.Module) -> Dict:
     """ Predicting M4 using a model provided. """
 
-    return 0
+    return {}
 
 
 def score_tourism(actual: List, predictions: List) -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
-    return 0
+    return {}
 
 
-def predict_M3(model: nn.Module) -> List:
+def predict_M3(model: nn.Module) -> Dict:
     """ Predicting M4 using a model provided. """
 
-    return 0
+    return {}
 
 
 def score_M3(actual: List, predictions: List) -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
-    return 0
+    return {}
 
 
-def predict_wiki(model: nn.Module) -> List:
+def predict_wiki(model: nn.Module) -> Dict:
     """ Predicting M4 using a model provided. """
 
-    return 0
+    return {}
 
 
 def score_wiki(actual: List, predictions: List) -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
-    return 0
+    return {}

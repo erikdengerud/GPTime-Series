@@ -33,3 +33,23 @@ scoring:
       weekly: 1
       daily: 1
       hourly: 24
+tests:
+  data:
+    M4:
+      Dtest: "GPTime/tests/data/M4test/Daily-test.csv"
+      Htest: "GPTime/tests/data/M4test/Hourly-test.csv"
+      Mtest: "GPTime/tests/data/M4test/Monthly-test.csv"
+      Qtest: "GPTime/tests/data/M4test/Quarterly-test.csv"
+      Wtest: "GPTime/tests/data/M4test/Weekly-test.csv"
+      Ytest: "GPTime/tests/data/M4test/Yearly-test.csv"
+      Dtrain: "GPTime/tests/data/M4train/Daily-train.csv"
+      Htrain: "GPTime/tests/data/M4train/Hourly-train.csv"
+      Mtrain: "GPTime/tests/data/M4train/Monthly-train.csv"
+      Qtrain: "GPTime/tests/data/M4train/Quarterly-train.csv"
+      Wtrain: "GPTime/tests/data/M4train/Weekly-train.csv"
+      Ytrain: "GPTime/tests/data/M4train/Yearly-train.csv"
+      smyl: "GPTime/tests/data/M4submissions/submission-118.csv"
+      montero: "GPTime/tests/data/M4submissions/submission-245.csv"
+      naive: "GPTime/tests/data/M4submissions/submission-Naive.csv"
+      naive2: "GPTime/tests/data/M4submissions/submission-Naive2.csv"
+
