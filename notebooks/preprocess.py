@@ -151,5 +151,41 @@ def preprocess_dataset(
         ):
             print("Unsuccessful in removing Inf values.")
             print(f"WARNING: Inf values in dataset {d}.")
+        
+    if experiments["GLOBAL"]:
+        X_train, X_test = datasets["GLOBAL"]
+        # create dfs and write
+
 
     return datasets
+
+if __name__ == "__main__":
+    experiments = {
+        "GLOBAL" : True,
+        "YEARLY" : False,
+        "QUARTERLY" : False,
+        "MONTHLY" : False,
+        "WEEKLY" : False,
+        "DAILY" : False,
+        "HOURLY" : False,
+    }
+
+    config = {
+        "MASE_SCALE" : True,
+        "MASE_SCALE_SEASONALITY" : True,
+        "SCALE_SET" : "FULL" # FULL or SUB. Either the all the data or just the last 12 obs.
+    }
+
+    # Periods used in MASE scaling
+    #M4 paper defines yearly, weekly and daily to be 1
+
+    periods = {
+        "YEARLY"    : 1, 
+        "QUARTERLY" : 4, 
+        "MONTHLY"   : 12, 
+        "WEEKLY"    : 1, 
+        "DAILY"     : 1, 
+        "HOURLY"    : 24
+    }
+
+    datasests = preprocess_dataset()

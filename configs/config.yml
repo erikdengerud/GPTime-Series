@@ -1,0 +1,35 @@
+path:
+  m4_train: "GPTime/data/M4train/"
+  m4_test: "GPTime/data/M4train/"
+  logs: "logs"
+  log_config: "configs/logging.yml"
+
+scoring:
+  owa:
+    path: "GPTime/data/benchmarks/naive2.csv"
+    naive2_smape: 13.564
+    naive2_mase: 1.912
+  metrics:
+    mase: True
+    smape: True
+    owa: True
+    mae: False
+    rmse: False
+    wape: False
+    mape: False
+  m4:
+    scale_mase: True
+    horizons:
+      yearly: 6
+      quarterly: 8
+      monthly: 18
+      weekly: 13
+      daily: 14
+      hourly: 48
+    periods:
+      yearly: 1
+      quarterly: 4
+      monthly: 12
+      weekly: 1
+      daily: 1
+      hourly: 24
