@@ -19,13 +19,19 @@ def MASE(actual: np.array, predicted: np.array, scale: np.array) -> float:
 
 def SMAPE(actual: np.array, predicted: np.array) -> float:
     """ Calculating Symmetric Mean Absolute Prediction Error """
-    return 200.0 * np.nanmean(np.abs(actual - predicted) / (np.abs(actual) + np.abs(predicted)), axis=(1,0))
+    return np.mean(
+        np.nanmean(
+            200.0 * np.abs(actual - predicted) / (np.abs(actual) + np.abs(predicted)),
+            axis=1,
+        )
+    )
 
 
-def OWA(mase: float, smape: float) -> float:
+def OWA(mase: float, smape: float, freq: str = "global") -> float:
     """ Calculating the Overall Weighted Average used in M4 """
     return (
-        mase / cfg.scoring.owa.naive2_mase + smape / cfg.scoring.owa.naive2_smape
+        mase / cfg.scoring.owa.naive2.mase[freq]
+        + smape / cfg.scoring.owa.naive2.smape[freq]
     ) / 2
 
 

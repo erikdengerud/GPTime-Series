@@ -36,7 +36,7 @@ def multi_step_predict(
     with torch.no_grad():
         for h in range(horizon):
             current_x = x[:, -model.memory :]
-            pred = model.forward(current_x)
+            pred = getattr(model, "forward")(current_x)
             x = torch.cat((x, pred), axis=1)
     predictions = x[:, -horizon:].cpu().detach().numpy()
 
@@ -56,7 +56,7 @@ def period_num_str_file(fname: str, period_dict: Dict) -> Tuple[int, str]:
     return 1, ""
 
 
-def create_training_data(fname: str, memory: int, period_num: int) -> np.array:
+def create_training_data(fname: str, memory: int, period_num: int) -> Tuple:
     frequency_tmp = []
     try:
         df = pd.read_csv(fname, index_col=0)
@@ -68,18 +68,18 @@ def create_training_data(fname: str, memory: int, period_num: int) -> np.array:
     # create training data as long as the memory of the model. This is a for loop due to the format of the .csv.
     for i in range(Y.shape[0]):
         ts = Y[i][~np.isnan(Y[i])]
-        if len(ts) < model.memory:
+        if len(ts) < memory:
             # pad with token. 0 for now.
             frequency_tmp.append(
                 np.pad(
                     ts,
-                    pad_width=(model.memory - len(ts), 0),
+                    pad_width=(memory - len(ts), 0),
                     mode="constant",
                     constant_values=0,
                 )
             )
         else:
-            frequency_tmp.append(ts[-model.memory :])
+            frequency_tmp.append(ts[-memory:])
 
     mase_scale = (
         df.diff(periods=period_num, axis=1).abs().mean(axis=1).reset_index(drop=True)
@@ -102,7 +102,7 @@ def predict_M4(model: nn.Module) -> np.array:
             fname=fname, period_dict=cfg.scoring.m4.periods
         )
         frequency_train_data, scale = create_training_data(
-            fname=fname, memory=model.memory, period_num=period_num
+            fname=fname, memory=getattr(model, "memory"), period_num=period_num
         )
         predictions = multi_step_predict(
             model=model,
@@ -119,7 +119,10 @@ def predict_M4(model: nn.Module) -> np.array:
 
     return df_all.values
 
-def score_M4(predictions: np.array, df_results_name:str="GPTime/results/M4/test.csv") -> Dict:
+
+def score_M4(
+    predictions: np.array, df_results_name: str = "GPTime/results/M4/test.csv"
+) -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
     """
     metrics = {}
@@ -129,7 +132,7 @@ def score_M4(predictions: np.array, df_results_name:str="GPTime/results/M4/test.
             metrics[metric] = []
             frequency_metrics[metric] = []
     """
-    frequency_metrics:Dict[str, Dict[str, float]]= {}
+    frequency_metrics: Dict[str, Dict[str, float]] = {}
     # Read in and prepare the data
     all_test_files = glob.glob(cfg.path.m4_test + "*")
     all_train_files = glob.glob(cfg.path.m4_test + "*")
@@ -161,19 +164,20 @@ def score_M4(predictions: np.array, df_results_name:str="GPTime/results/M4/test.
 
         mase_freq = MASE(Y, predicted, scale)
         smape_freq = SMAPE(Y, predicted)
+        owa_freq = OWA(mase=mase_freq, smape=smape_freq, freq=period_str)
         tot_mase += mase_freq * Y.shape[0]
         tot_smape += smape_freq * Y.shape[0]
 
         frequency_metrics[period_str] = {}
         frequency_metrics[period_str]["MASE"] = mase_freq
         frequency_metrics[period_str]["SMAPE"] = smape_freq
-        frequency_metrics[period_str]["OWA"] = np.nan
+        frequency_metrics[period_str]["OWA"] = owa_freq
 
         crt_pred_index += Y.shape[0]
 
     tot_mase = tot_mase / crt_pred_index
     tot_smape = tot_smape / crt_pred_index
-    tot_owa = OWA(tot_mase, tot_smape)
+    tot_owa = OWA(tot_mase, tot_smape, freq="global")
 
     frequency_metrics["GLOBAL"] = {}
     frequency_metrics["GLOBAL"]["MASE"] = tot_mase
@@ -205,9 +209,9 @@ if __name__ == "__main__":
             out = self.out(x)
             return out
 
-    model = MLP(in_features=10, out_features=1, n_hidden=16).double()
+    mlp = MLP(in_features=10, out_features=1, n_hidden=16).double()
     # predict
-    preds = predict_M4(model=model)
+    preds = predict_M4(model=mlp)
     logger.info(len(preds))
     d = score_M4(preds)
     print(d)

@@ -6,9 +6,23 @@ path:
 
 scoring:
   owa:
-    path: "GPTime/data/benchmarks/naive2.csv"
-    naive2_smape: 13.564
-    naive2_mase: 1.912
+    naive2:
+      smape:
+        yearly: 16.342
+        quarterly: 11.012
+        monthly: 14.427
+        weekly: 9.161
+        daily: 3.045
+        hourly: 18.383
+        global: 13.564
+      mase:
+        yearly: 3.974
+        quarterly: 1.371
+        monthly: 1.063
+        weekly: 2.777
+        daily: 3.278
+        hourly: 2.396
+        global: 1.912
   metrics:
     mase: True
     smape: True
