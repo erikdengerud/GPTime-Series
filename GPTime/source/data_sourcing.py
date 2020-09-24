@@ -10,9 +10,16 @@ data (not saved anywhere). Instead, write a dummy data table/file to the designa
 staging DB/bucket/directory for preprocess to pick up.
 """
 
-# 
+from GPTime.source.source_FRED import source_FRED
 
-def source(api_keys: Dict, small_sample:bool=False)->None:
+from typing import Dict
+import logging
+from GPTime.config import cfg
+
+logger = logging.getLogger(__name__)
+
+
+def source(api_keys, small_sample:bool=False)->None:
     """
     Sourcing raw data from data sources.
     Data sources: 
@@ -71,4 +78,19 @@ def source(api_keys: Dict, small_sample:bool=False)->None:
 
     --- Caching queries
     """
-    pass
+
+    # Fred
+    source_FRED(credentials=api_keys.FRED, small_sample=small_sample)
+
+    
+
+if __name__ == "__main__":
+    import yaml
+    import sys
+    from box import Box
+    #import matplotlib.pyplot as plt  
+
+    with open("GPTime/credentials.yml", "r") as ymlfile:
+        credentials = Box(yaml.safe_load(ymlfile))
+
+    source(credentials, small_sample=True)
