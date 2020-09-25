@@ -1,10 +1,12 @@
 source:
   path:
-    FRED: GPTime/data/raw_data/FRED
+    FRED: 
+      meta: GPTime/data/raw_data/meta/FRED/
+      raw: GPTime/data/raw_data/FRED/
 
 preprocess:
   path:
-    FRED: GPTime/data/processed_data
+    FRED: GPTime/data/processed_data/
 path:
   m4_train: "GPTime/data/M4train/"
   m4_test: "GPTime/data/M4train/"

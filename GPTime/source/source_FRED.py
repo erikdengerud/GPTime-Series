@@ -1,45 +1,20 @@
 import fred
 from typing import Dict, List, Tuple
 import numpy as np
-#import logging
+import json
+import logging
 import os
 import sys
 sys.path.append("")
 
 from GPTime.config import cfg
 
-#logger = logging.getLogger(__name__)
-
-#import matplotlib.pyplot as plt  
+logger = logging.getLogger(__name__)
 
 
-def source_FRED(credentials, small_sample:bool=False) -> None:
+def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") -> None:
     """
     Source the full FRED dataset and save to files. https://fred.stlouisfed.org/
-
-
-    {'realtime_start': '2020-09-24',
-    'realtime_end': '2020-09-24',
-    'order_by': 'series_id',
-    'sort_order': 'asc',
-    'count': 12,
-    'offset': 0,
-    'limit': 1000,
-    'seriess': [{'id': 'ATLSBUBEI',
-    'realtime_start': '2020-09-24',
-    'realtime_end': '2020-09-24',
-    'title': 'Business Expectations Index (DISCONTINUED)',
-    'observation_start': '2015-01-01',
-    'observation_end': '2020-07-01',
-    'frequency': 'Monthly',
-    'frequency_short': 'M',
-    'units': 'Index 2015-2018=100',
-    'units_short': 'Index 2015-2018=100',
-    'seasonal_adjustment': 'Not Seasonally Adjusted',
-    'seasonal_adjustment_short': 'NSA',
-    'last_updated': '2020-07-29 10:01:03-05',
-    'popularity': 25,
-    'group_popularity': 25,
     """
     # Setup directories f they do not exist
     # TODO
@@ -47,40 +22,72 @@ def source_FRED(credentials, small_sample:bool=False) -> None:
     # Create fred connection using api-key
     fred.key(credentials.API_KEY_FED.key)
 
-
     if small_sample:
-        # Crawl to get a full list of available time series.
-        ids_freqs:List[Tuple] = []
-        for s in fred.category_series(33936)["seriess"]:
-            ids_freqs.append((s["id"], s["frequency_short"]))
-        np.save("GPTime/data/raw_data/meta/FRED/id_freq_list.npy", ids_freqs)
+        try:
+            if id_freq_list_path == "":
+                filename="dummy_id_freq_list.json"
+                with open(cfg.source.path.FRED.meta + filename, "r") as fp:
+                    ids_freqs = json.load(fp)
+            else:
+                try:
+                    with open(id_freq_list_path, "r") as fp:
+                        ids_freqs = json.load(fp)
+                except Exception as e:
+                    logger.warning(e)
+                    logger.warning(f"Not able to read provided file in path {id_freq_list_path}.")
+            logger.info("Using precomputed list for retrieval from FRED.")
+        except Exception as e:
+            logger.info(e)
+            logger.info("Not able to find predefined list of ids. Crawling FRED instead.") 
+            # Crawl to get a full list of available time series.
+            ids_freqs = {}
+            for s in fred.category_series(33936)["seriess"]:
+                ids_freqs[s["id"]] = s["frequency_short"]
+            
+            filename="dummy_id_freq_list.json"
+            #path = os.path.join(cfg.source.path.FRED.meta, filename)
+            with open(cfg.source.path.FRED.meta + filename, "w") as fp:
+                json.dump(ids_freqs, fp, sort_keys=True, indent=4, separators=(',', ': '))
         
-        #with(open("GPTime/data/raw_data/meta/FRED/id_freq_list.txt", "w")) as f:
-        #    f.write("\n".join(ids))
-        #    f.close()
-        #print(ids)
-
-        # Download and save all time series. Start new files as the size gets too large.
-        time_series = []
-        for id, freq in ids_freqs:
+        # Download and save all time series. saving each sample as a JSON
+        for id in ids_freqs.keys():
             observations = fred.observations(id)
-            ts = []
-            for obs in observations["observations"]:
-                ts.append(float(obs["value"]))
-            time_series.append(np.array(ts))
-        np.save("GPTime/data/raw_data/small/FRED/FRED_test.npy", time_series)
+            json_out = {
+                "source" : "FRED",
+                "id" : id,
+                "frequency" : ids_freqs[id],
+                "values" : [float(obs["value"]) for obs in observations["observations"]]
+            }
+            filename=f"{id}.json"
+            #path = os.path.join(cfg.source.path.FRED.raw, filename)
+            with open(cfg.source.path.FRED.raw + filename, "w") as fp:
+                json.dump(json_out, fp)
+            
         # Statistics of sourcing
 
         # Random dummy data for preprocessing
-        X = np.random.rand(10000, 200)
-        filename="dummy_test.npy"
-        path = os.path.join(cfg.source.path.FRED, filename)
-        np.save(path, X)
+        num_preprocessed = 0
+        for i in range(10000):
+            if num_preprocessed % 1000 == 0:
+                curr_dir = f"dir{num_preprocessed // 1000 :03d}/"
+                os.makedirs(cfg.source.path.FRED.raw + curr_dir, exist_ok=True)
+            out = {
+                "source" : "FRED",
+                "id" : f"{i:04d}",
+                "frequency" : np.random.choice(["Y", "Q", "M", "W", "D", "H"]),
+                "values" : list(np.random.rand(100)),
+            }
+            filename = f"{i:04d}.json"
+            with open(cfg.source.path.FRED.raw + curr_dir + filename, "w") as fp:
+                json.dump(out, fp)
+            num_preprocessed += 1
+
     else:
         pass
         # Crawl to get a full list of available time series.
 
-        # Download and save all time series. Start new files as the size gets too large. 
+        # Download and save all time series. Start new files as the size gets too large 
+        # more than 1000 files (https://softwareengineering.stackexchange.com/questions/254551/is-creating-and-writing-to-one-large-file-faster-than-creating-and-writing-to-ma). 
 
     #logger.info(len(time_series))
     #for ts in time_series[:5]:

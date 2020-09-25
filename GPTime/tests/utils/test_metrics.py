@@ -57,7 +57,6 @@ class TestMetrics(unittest.TestCase):
     """
     Test submissions from M4.
     """
-
     def setUp(self):
         self.test_data = df_test.values
         self.smyl_predictions = df_smyl.values
