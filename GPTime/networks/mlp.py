@@ -6,7 +6,7 @@ class MLP(nn.Module):
     """
     N layer multi layer perceptron with H hidden units in each layer.
     """
-    def __init__(self, in_features:int, out_features:int, num_layers:int, n_hidden:int, bias:bool=True):
+    def __init__(self, in_features:int, out_features:int=1, num_layers:int=5, n_hidden:int=32, bias:bool=True):
         super(MLP, self).__init__()
         self.in_features = in_features
         self.out_features = out_features
@@ -16,9 +16,9 @@ class MLP(nn.Module):
         self.bias=bias
 
         self.layers = nn.ModuleList()
-        for i in range(self.N-1):
-            self.layers.append(nn.Linear(in_features=self.in_features if i==0 else self.H, out_features=self.H, bias=self.bias))
-        self.out = nn.Linear(in_features=self.H, out_features=self.out_features, bias=self.bias)
+        for i in range(num_layers-1):
+            self.layers.append(nn.Linear(in_features=in_features if i==0 else n_hidden, out_features=n_hidden, bias=bias))
+        self.out = nn.Linear(in_features=n_hidden, out_features=out_features, bias=bias)
 
         self.init_weights()
 
@@ -36,7 +36,3 @@ class MLP(nn.Module):
         nn.init.normal_(self.out.weight, std=1e-3)
         if self.bias:
             nn.init.normal_(self.out.bias, std=1e-6)
-
-if __name__ == "__main__":
-    mlp = MLP(in_features=10, out_features=1, num_layers=3, n_hidden=8)
-    print(mlp)

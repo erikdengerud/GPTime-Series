@@ -1,3 +1,12 @@
+path:
+  m4_train: "GPTime/data/M4train/"
+  m4_test: "GPTime/data/M4train/"
+  logs: "logs"
+  log_config: "configs/logging.yml"
+
+run:
+  name: test
+
 source:
   path:
     FRED: 
@@ -7,11 +16,18 @@ source:
 preprocess:
   path:
     FRED: GPTime/data/processed_data/
-path:
-  m4_train: "GPTime/data/M4train/"
-  m4_test: "GPTime/data/M4train/"
-  logs: "logs"
-  log_config: "configs/logging.yml"
+
+train:
+  model:
+  optimizer:
+  max_epochs:
+  loss:
+
+networks:
+  tcn:
+    weight_norm: True
+predict:
+
 
 scoring:
   owa:
