@@ -41,7 +41,8 @@ class TestSourceFred(unittest.TestCase):
             json.dump(test_file, fp)
         self.test_file = test_file
         for f in self.test_file.keys():
-            os.remove(cfg.source.path.FRED.raw + f + ".json")
+            if os.path.isfile(cfg.source.path.FRED.raw + f + ".json"):
+                os.remove(cfg.source.path.FRED.raw + f + ".json")
         source_FRED(self.credentials.FRED, small_sample=True, id_freq_list_path="GPTime/tests/data/test_fred_list.json")
 
     def test_api_key(self):

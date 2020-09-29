@@ -1,33 +1,54 @@
+run:
+  name: experiment_name
+  source_hard: False
+  preprocess_hard: False
+  train_hard: False
+  evaluate_hard: False
+
 path:
   m4_train: "GPTime/data/M4train/"
   m4_test: "GPTime/data/M4train/"
   logs: "logs"
   log_config: "configs/logging.yml"
 
-run:
-  name: test
 
 source:
   path:
-    FRED: 
+    FRED:
       meta: GPTime/data/raw_data/meta/FRED/
       raw: GPTime/data/raw_data/FRED/
 
 preprocess:
-  path:
-    FRED: GPTime/data/processed_data/
+  path: 
+    FRED: GPTime/data/processed_data/FRED/
+
+
+dataset:
+  sampling:
+    min_length:
+      yearly: 3
+      quarterly: 10
+      monthly: 30
+      weekly: 10
+      daily: 10
+      hourly: 50
 
 train:
   model:
+    memory: 10
   optimizer:
   max_epochs:
   loss:
 
+evaluate:
+
+predict:
+
 networks:
   tcn:
     weight_norm: True
-predict:
-
+  mlp:
+  ar:
 
 scoring:
   owa:

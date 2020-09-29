@@ -30,7 +30,7 @@ def source(credentials, small_sample:bool=False)->None:
     source_FRED(credentials=credentials.FRED, small_sample=small_sample)
 
     
-
+"""
 if __name__ == "__main__":
     import yaml
     import sys
@@ -43,3 +43,4 @@ if __name__ == "__main__":
         credentials = Box(yaml.safe_load(ymlfile))
 
     source(credentials, small_sample=True)
+"""

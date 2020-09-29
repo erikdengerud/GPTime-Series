@@ -50,7 +50,7 @@ def preprocess_FRED()->None:
             "values" : list(np.random.rand(100)),
         }
         filename = f"{i:04d}.json"
-        with open(cfg.preprocess.path.FRED+ curr_dir + filename, "w") as fp:
+        with open(cfg.preprocess.path.FRED + curr_dir + filename, "w") as fp:
             json.dump(out, fp)
         num_preprocessed += 1
     logger.info(f"Wrote {num_preprocessed} preprocessed files.")
