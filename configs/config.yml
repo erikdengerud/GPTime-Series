@@ -17,6 +17,11 @@ source:
     FRED:
       meta: GPTime/data/raw_data/meta/FRED/
       raw: GPTime/data/raw_data/FRED/
+  api:
+    FRED:
+      limit: 30
+      sleep: 60
+
 
 preprocess:
   path: 
