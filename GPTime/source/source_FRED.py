@@ -13,6 +13,9 @@ from GPTime.config import cfg
 logger = logging.getLogger(__name__)
 
 def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rate_limit:int=100) -> None:
+    """
+    Crawling the FRED dataset. Saving all time series ids and metadata.
+    """
     fred.key(api_key)
     ids_meta = []
     # initialize
@@ -20,7 +23,7 @@ def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rat
     for node in nodes_to_visit:
         node_children = fred.children(node)
         for child in node_children["categories"]:
-            category_names[child["id"]] = {"name": child["name"], "parent_id" : child["parent_id"]}
+            category_names[child["id"]] = {"name": child["name"], "parent_id": child["parent_id"]}
     num_visited = 0
     num_requests = 0
     while nodes_to_visit:
@@ -32,18 +35,15 @@ def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rat
             if children["categories"]:
                 for child in children["categories"]:
                     nodes_to_visit.append(child["id"])
-                    category_names[child["id"]] = {"name": child["name"], "parent_id" : child["parent_id"]}
+                    category_names[child["id"]] = {"name": child["name"], "parent_id": child["parent_id"]}
 
             seriess = fred.category_series(curr_node)["seriess"]
             num_requests += 1
             for ts in seriess:
-                id_meta = {
-                    "node_id" : curr_node,
-                    "id" : ts["id"],
-                    "frequency" : ts["frequency_short"],
-                    "category_name" : category_names[curr_node]["name"],
-                    "parent_id" : category_names[curr_node]["parent_id"],
-                }
+                id_meta = ts
+                id_meta["node_id"] = curr_node
+                id_meta["category_name"] = category_names[curr_node]["name"]
+                id_meta["parent_id"] = category_names[curr_node]["parent_id"]
                 ids_meta.append(id_meta)
 
             num_visited += 1
@@ -71,13 +71,40 @@ def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rat
         fp.close()
 
 def download_ids(api_key:str, ids_freq_json_path:str, sleep_time:int=60, rate_limit:int=100) -> None:
-
+    """
+    Downloading all time series in the provided JSON file.
+    """
+    fred.key(api_key)
+    num_requests = 0
+    tot_downloaded = 
     # read json
+    with open(os.path.join(cfg.source.path.FRED.meta, "ids_meta.json"), "r") as f:
+        ids_meta = json.load(f)
+    for id_meta in ids_meta:
+        observations = fred.observations(id_meta["id"])
+        num_requests += 1
+        ts = {
+            "source" : "FRED",
+            "id" : id_meta["id"],
+            "node_id" : id_meta["node_id"],
+            "parent_id" : id_meta["parent_id"]
+            "category_name" : id_meta["category_name"],
+            "frequency" : id_meta["frequency"],
+            "values" : [obs["value"] for obs in observations],
+        }
+        filename = f"{id_meta["id"]}.json"
+        if num_processed % cfg.source.files_per_folder == 0:
+            curr_dir = f"dir{num_processed // cfg.source.files_per_folder :04d}/"
+            os.makedirs(os.path.join(cfg.source.path.FRED.raw, curr_dir), exist_ok=True)
+        with open(os.path.join(*[cfg.source.path.FRED.raw, curr_dir, filename]), "w") as fp:
+            json.dump(out, fp)
+            fp.close()
+        num_preprocessed += 1
 
-    # for ts in json:
-        # download
-        # save as json in curr dir count
-    pass
+        if num_requests > rate_limit:
+            time.sleep(sleep_time)
+            num_requests=0
+
 
 
 def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") -> None:
