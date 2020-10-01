@@ -76,30 +76,25 @@ def download_ids(api_key:str, ids_freq_json_path:str, sleep_time:int=60, rate_li
     """
     fred.key(api_key)
     num_requests = 0
-    tot_downloaded = 
-    # read json
+    tot_downloaded = 0
+
     with open(os.path.join(cfg.source.path.FRED.meta, "ids_meta.json"), "r") as f:
         ids_meta = json.load(f)
+        
     for id_meta in ids_meta:
         observations = fred.observations(id_meta["id"])
         num_requests += 1
-        ts = {
-            "source" : "FRED",
-            "id" : id_meta["id"],
-            "node_id" : id_meta["node_id"],
-            "parent_id" : id_meta["parent_id"]
-            "category_name" : id_meta["category_name"],
-            "frequency" : id_meta["frequency"],
-            "values" : [obs["value"] for obs in observations],
-        }
+        ts = observations
+        for key, value in id_meta.items():
+            ts[key] = value
         filename = f"{id_meta["id"]}.json"
-        if num_processed % cfg.source.files_per_folder == 0:
-            curr_dir = f"dir{num_processed // cfg.source.files_per_folder :04d}/"
+        if tot_downloaded % cfg.source.files_per_folder == 0:
+            curr_dir = f"dir{tot_downloaded // cfg.source.files_per_folder :04d}/"
             os.makedirs(os.path.join(cfg.source.path.FRED.raw, curr_dir), exist_ok=True)
         with open(os.path.join(*[cfg.source.path.FRED.raw, curr_dir, filename]), "w") as fp:
             json.dump(out, fp)
             fp.close()
-        num_preprocessed += 1
+        tot_downloaded += 1
 
         if num_requests > rate_limit:
             time.sleep(sleep_time)
@@ -184,17 +179,11 @@ def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") 
             logger.info("Crawling FRED.")
             crawl_fred(api_key=credentials.API_KEY_FED.key, nodes_to_visit=[0], sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
         
-        path = os.path.join(cfg.source.path.FRED.meta, "ids_freq_list.json")
+        path = os.path.join(cfg.source.path.FRED.meta, "ids_meta.json")
+
         logger.info(f"Downloading {path}.")
         download_ids(api_key=credentials.API_KEY_FED.key, ids_freq_json_path=path, sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
 
-        # Download and save all time series. Start new files as the size gets too large 
-        # more than 1000 files (https://softwareengineering.stackexchange.com/questions/254551/is-creating-and-writing-to-one-large-file-faster-than-creating-and-writing-to-ma). 
-
-    #logger.info(len(time_series))
-    #for ts in time_series[:5]:
-    #    plt.plot(ts)
-    #    plt.show()
 
 if __name__ == "__main__":
     import yaml
