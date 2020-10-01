@@ -58,6 +58,15 @@ def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rat
         json.dump(ts_ids_freqs, fp, sort_keys=True, indent=4, separators=(',', ': '))
         fp.close()
 
+def download_ids(api_key:str, ids_freq_json_path:str, sleep_time:int=60, rate_limit:int=100) -> None:
+
+    # read json
+
+    # for ts in json:
+        # download
+        # save as json in curr dir count
+    pass
+
 
 def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") -> None:
     """
@@ -137,7 +146,8 @@ def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") 
             crawl_fred(api_key=credentials.API_KEY_FED.key, nodes_to_visit=[0], sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
         
         path = os.path.join(cfg.source.path.FRED.meta, "ids_freq_list.json")
-        logger.info(f"Loading {path}.")
+        logger.info(f"Downloading {path}.")
+        download_ids(api_key=credentials.API_KEY_FED.key, ids_freq_json_path=path, sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
 
         # Download and save all time series. Start new files as the size gets too large 
         # more than 1000 files (https://softwareengineering.stackexchange.com/questions/254551/is-creating-and-writing-to-one-large-file-faster-than-creating-and-writing-to-ma). 
@@ -151,16 +161,9 @@ if __name__ == "__main__":
     import yaml
     import sys
     from box import Box
-    #import matplotlib.pyplot as plt  
 
     with open("GPTime/credentials.yml", "r") as ymlfile:
         credentials = Box(yaml.safe_load(ymlfile))
-    #sys.path.append("")
-    #sys.path.append("../..")
-    # load yml file to dictionary
-    #import os
-    #print(os.getcwd())
-    #credentials = yaml.load(open("GPTime/credentials.yml"))
 
     # access values from dictionary
     source_FRED(credentials.FRED, small_sample=False)
