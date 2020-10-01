@@ -19,7 +19,7 @@ source:
       raw: GPTime/data/raw_data/FRED/
   api:
     FRED:
-      limit: 30
+      limit: 55
       sleep: 60
 
 

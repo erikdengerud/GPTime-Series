@@ -14,34 +14,45 @@ logger = logging.getLogger(__name__)
 
 def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rate_limit:int=100) -> None:
     fred.key(api_key)
-    bottom_nodes = []
-    ts_ids_freqs = {}
+    ids_meta = []
+    # initialize
+    category_names = {}
+    for node in nodes_to_visit:
+        node_children = fred.children(node)
+        for child in node_children["categories"]:
+            category_names[child["id"]] = {"name": child["name"], "parent_id" : child["parent_id"]}
     num_visited = 0
     num_requests = 0
     while nodes_to_visit:
         curr_node = nodes_to_visit.pop()
         #logger.info(f"Current node: {curr_node:>4}")
-        children = fred.children(curr_node)
-        num_requests += 1
         try:
+            children = fred.children(curr_node)
+            num_requests += 1
             if children["categories"]:
                 for child in children["categories"]:
                     nodes_to_visit.append(child["id"])
-            else:
-                try:
-                    bottom_nodes.append(curr_node)
-                    seriess = fred.category_series(curr_node)["seriess"]
-                    num_requests += 1
-                    for ts in seriess:
-                        ts_ids_freqs[ts["id"]] = ts["frequency_short"]
-                except Exception as e:
-                    logger.debug(e)
+                    category_names[child["id"]] = {"name": child["name"], "parent_id" : child["parent_id"]}
+
+            seriess = fred.category_series(curr_node)["seriess"]
+            num_requests += 1
+            for ts in seriess:
+                id_meta = {
+                    "node_id" : curr_node,
+                    "id" : ts["id"],
+                    "frequency" : ts["frequency_short"],
+                    "category_name" : category_names[curr_node]["name"],
+                    "parent_id" : category_names[curr_node]["parent_id"],
+                }
+                ids_meta.append(id_meta)
+
             num_visited += 1
+
             if num_visited % 100 == 0:
-                logger.info(f"Visited {num_visited:>5} nodes and currently have {len(ts_ids_freqs):>6} time series ids saved")
+                logger.info(f"Visited {num_visited:>5} nodes and currently have {len(ids_meta):>6} time series ids saved")
                 fname = time.ctime().replace(" ", "-").replace(":","-")+".json"
                 with open(os.path.join(cfg.source.path.FRED.meta, fname), "w") as fp:
-                    json.dump(ts_ids_freqs, fp, sort_keys=True, indent=4, separators=(',', ': '))
+                    json.dump(ids_meta, fp, sort_keys=True, indent=4, separators=(",", ": "))
                     fp.close()
                 fname = time.ctime().replace(" ", "-").replace(":","-")+"-nodes-to-visit.txt"
                 with open(os.path.join(cfg.source.path.FRED.meta, fname), "w") as f:
@@ -54,8 +65,9 @@ def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rat
             logger.debug(e)
             logger.debug(f"Current node {curr_node}")
             logger.debug(f"{num_requests:>3} requests last minute")
-    with open(os.path.join(cfg.source.path.FRED.meta, "ids_freq_list.json"), "w") as fp:
-        json.dump(ts_ids_freqs, fp, sort_keys=True, indent=4, separators=(',', ': '))
+
+    with open(os.path.join(cfg.source.path.FRED.meta, "ids_meta.json"), "w") as fp:
+        json.dump(ids_meta, fp, sort_keys=True, indent=4, separators=(",", ": "))
         fp.close()
 
 def download_ids(api_key:str, ids_freq_json_path:str, sleep_time:int=60, rate_limit:int=100) -> None:
@@ -103,7 +115,7 @@ def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") 
             filename="dummy_id_freq_list.json"
             #path = os.path.join(cfg.source.path.FRED.meta, filename)
             with open(cfg.source.path.FRED.meta + filename, "w") as fp:
-                json.dump(ids_freqs, fp, sort_keys=True, indent=4, separators=(',', ': '))
+                json.dump(ids_freqs, fp, sort_keys=True, indent=4, separators=(",", ": "))
         
         # Download and save all time series. saving each sample as a JSON
         for id in ids_freqs.keys():
@@ -141,7 +153,7 @@ def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") 
     else:
         # Crawl to get a full list of available time series.
         # save every n minutes to avoid having to go redo...
-        if not os.path.isfile(os.path.join(cfg.source.path.FRED.meta, "ids_freq_list.json")):
+        if not os.path.isfile(os.path.join(cfg.source.path.FRED.meta, "ids_freq_list_test.json")):
             logger.info("Crawling FRED.")
             crawl_fred(api_key=credentials.API_KEY_FED.key, nodes_to_visit=[0], sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
         
