@@ -21,8 +21,8 @@ source:
     FRED:
       limit: 55
       sleep: 60
-  files_per_folder: 1000
-  samples_per_json: 100
+  files_per_folder: 100
+  samples_per_json: 2000
 
 
 preprocess:
@@ -31,29 +31,36 @@ preprocess:
 
 
 dataset:
-  sampling:
-    min_length:
-      yearly: 3
-      quarterly: 10
-      monthly: 30
-      weekly: 10
-      daily: 10
-      hourly: 50
+  dataset_module: "GPTime.model.data"
+  dataset_name: "TSDataset"
+  dataset_params:
+    sampling:
+      min_length:
+        yearly: 3
+        quarterly: 10
+        monthly: 30
+        weekly: 10
+        daily: 10
+        hourly: 50
 
 train:
-  model:
-    model_module: "GPTime.networks.mlp"
-    model_name: "MLP"
-    model_params:
-      in_features: 10
-      out_features: 1
-      num_layers: 5
-      n_hidden: 32
-      bias: True
-      in_channels: 1,
-      channels: [32,32,32]
-      kernel_size: 4,
-      dropout: 0.2
+  model_module: "GPTime.networks.mlp"
+  model_name: "MLP"
+  model_params_ar:
+    in_features: 10
+    out_features: 1
+    bias: True
+  model_params_mlp:
+    in_features: 10
+    out_features: 1
+    num_layers: 5
+    n_hidden: 32
+    bias: True
+  model_params_tcn:
+    in_channels: 1,
+    channels: [32,32,32]
+    kernel_size: 4,
+    dropout: 0.2
   optimizer_module: "torch.optim"
   optimizer_name: "Adam"
   optimizer_params:
@@ -62,11 +69,11 @@ train:
     eps: 0.00000001
     weight_decay: 0
     amsgrad: False
-  loss_module: "torch.nn"
-  loss_name: "MSE"
-  loss_params:
-    size_average: True
-    reduce: True
+  criterion_module: "torch.nn"
+  criterion_name: "MSELoss"
+  criterion_params:
+    #size_average: True
+    #reduce: True
     reduction: "mean"
   max_epochs:
 
