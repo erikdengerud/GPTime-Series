@@ -6,8 +6,8 @@ run:
   evaluate_hard: False
 
 path:
-  m4_train: "GPTime/data/M4train/"
-  m4_test: "GPTime/data/M4train/"
+  m4_train: "GPTime/data/raw/M4/M4train/"
+  m4_test: "GPTime/data/raw/M4/M4train/"
   logs: "logs"
   log_config: "configs/logging.yml"
 
@@ -15,17 +15,19 @@ path:
 source:
   path:
     FRED:
-      meta: GPTime/data/raw_data/meta/FRED/
-      raw: GPTime/data/raw_data/FRED/
+      meta: GPTime/data/meta/FRED/
+      raw: GPTime/data/raw/FRED/
   api:
     FRED:
       limit: 55
       sleep: 60
+  files_per_folder: 1000
+  samples_per_json: 100
 
 
 preprocess:
   path: 
-    FRED: GPTime/data/processed_data/FRED/
+    FRED: GPTime/data/processed/FRED/
 
 
 dataset:
@@ -40,10 +42,33 @@ dataset:
 
 train:
   model:
-    memory: 10
-  optimizer:
+    model_module: "GPTime.networks.mlp"
+    model_name: "MLP"
+    model_params:
+      in_features: 10
+      out_features: 1
+      num_layers: 5
+      n_hidden: 32
+      bias: True
+      in_channels: 1,
+      channels: [32,32,32]
+      kernel_size: 4,
+      dropout: 0.2
+  optimizer_module: "torch.optim"
+  optimizer_name: "Adam"
+  optimizer_params:
+    lr: 0.001
+    betas: [0.9, 0.999]
+    eps: 0.00000001
+    weight_decay: 0
+    amsgrad: False
+  loss_module: "torch.nn"
+  loss_name: "MSE"
+  loss_params:
+    size_average: True
+    reduce: True
+    reduction: "mean"
   max_epochs:
-  loss:
 
 evaluate:
 
