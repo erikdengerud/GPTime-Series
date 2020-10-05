@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import time
+import glob
 sys.path.append("")
 
 from GPTime.config import cfg
@@ -79,37 +80,75 @@ def crawl_fred(api_key:str, nodes_to_visit:List[int]=[0], sleep_time:int=60, rat
             logger.debug(f"Current node {curr_node}")
             logger.debug(f"{num_requests:>3} requests last minute")
 
-def download_ids(api_key:str, ids_freq_json_path:str, sleep_time:int=60, rate_limit:int=100) -> None:
+def download_ids(api_key:str, sleep_time:int=60, rate_limit:int=100) -> None:
     """
     Downloading all time series in the provided JSON file.
-    """
+    """ 
     fred.key(api_key)
-    num_requests = 0
+    #num_requests = 0
     tot_downloaded = 0
-    curr_dir = f"dir{tot_downloaded // cfg.source.files_per_folder :04d}/"
+    num_files_written = 0
+    list_json = []
+    request_time_stamps = []
+    #curr_dir = f"dir{tot_downloaded // cfg.source.files_per_folder :04d}/"
 
-    with open(os.path.join(cfg.source.path.FRED.meta, "ids_meta.json"), "r") as f:
-        ids_meta = json.load(f)
-        
-    for id_meta in ids_meta:
-        observations = fred.observations(id_meta["id"])
-        num_requests += 1
-        ts = observations
-        for key, value in id_meta.items():
-            ts[key] = value
-        filename = f"{id_meta['id']}.json"
-        if tot_downloaded % cfg.source.files_per_folder == 0:
-            curr_dir = f"dir{tot_downloaded // cfg.source.files_per_folder :04d}/"
-            os.makedirs(os.path.join(cfg.source.path.FRED.raw, curr_dir), exist_ok=True)
-        with open(os.path.join(*[cfg.source.path.FRED.raw, curr_dir, filename]), "w") as fp:
-            json.dump(ts, fp, sort_keys=True, indent=4, separators=(",", ": "))
-            fp.close()
-        tot_downloaded += 1
+    dirs = glob.glob(cfg.source.path.FRED.meta + "/*")
+    for d in dirs:
+        file_names = glob.glob(d + "/*")
+        for fname in file_names:
+            with open(fname, "r") as fp:
+                ids_meta = json.load(fp)
+                fp.close()
 
-        if num_requests > rate_limit:
-            time.sleep(sleep_time)
-            num_requests=0
+            for id_meta in ids_meta:
+                try:
+                    observations = fred.observations(id_meta["id"])
+                    request_time_stamps.append(time.time())
+                    #num_requests += 1
+                    ts = {
+                        "id" : id_meta["id"],
+                        "source" : id_meta["source"],
+                        "node_id" : id_meta["node_id"],
+                        "category_name" : id_meta["category_name"],
+                        "parent_id" : id_meta["parent_id"],
+                        "frequency" : id_meta["frequency"],
+                        "observations" : [{"date" : obs["date"], "value" : obs["value"]} for obs in observations["observations"]]
+                    }
 
+                    tot_downloaded += 1
+                    list_json.append(ts)
+                    if len(list_json) > cfg.source.samples_per_json:
+                        filename = f"raw_{num_files_written:>06}.json"
+                        if num_files_written % cfg.source.files_per_folder == 0:
+                            curr_dir = f"dir{num_files_written // cfg.source.files_per_folder :04d}/"
+                            os.makedirs(os.path.join(cfg.source.path.FRED.raw, curr_dir), exist_ok=True)
+                        with open(os.path.join(*[cfg.source.path.FRED.raw, curr_dir, filename]), "w") as fp:
+                            json.dump(list_json, fp, sort_keys=True, indent=4, separators=(",", ": "))
+                            fp.close()
+                        
+                        with open(os.path.join(cfg.source.path.FRED.meta, "ids_downloaded.txt"), "a") as fp:
+                            for j in list_json:
+                                fp.write(j["id"])
+                                fp.write("\n")
+                            fp.close()
+
+                        num_files_written += 1
+                        list_json = []
+
+                    if tot_downloaded % 10000 == 0:
+                        logger.info(f"Downloaded {tot_downloaded} time series.")
+
+                except Exception as e:
+                    logger.info(f"Failed to download id {id_meta['id']} from fname {fname}.")
+                    logger.warning(e)
+
+                if len(request_time_stamps) > rate_limit:
+                    first = request_time_stamps.pop(0)
+                    if time.time() - first < sleep_time:
+                        #logger.info(f"Sleeping for {request_time_stamps[0]-first}.")
+                        time.sleep(request_time_stamps[0]-first)
+      
+        logger.info(f"Written files in directory {d} and currently have {tot_downloaded:>6} time series saved")
 
 
 def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") -> None:
@@ -186,13 +225,13 @@ def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") 
         # Crawl to get a full list of available time series.
         # save every n minutes to avoid having to go redo...
         #if not os.path.isfile(os.path.join(cfg.source.path.FRED.meta, "ids_freq_list_test.json")):
-        logger.info("Crawling FRED.")
-        crawl_fred(api_key=credentials.API_KEY_FED.key, nodes_to_visit=[0], sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
-        logger.info("Done crawling.")
+        #logger.info("Crawling FRED.")
+        #crawl_fred(api_key=credentials.API_KEY_FED.key, nodes_to_visit=[0], sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
+        #logger.info("Done crawling.")
         #path = os.path.join(cfg.source.path.FRED.meta, "ids_meta.json")
 
-        #logger.info(f"Downloading {path}.")
-        #download_ids(api_key=credentials.API_KEY_FED.key, ids_freq_json_path=path, sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
+        logger.info(f"Downloading.")
+        download_ids(api_key=credentials.API_KEY_FED.key, sleep_time=cfg.source.api.FRED.sleep, rate_limit=cfg.source.api.FRED.limit)
 
 
 if __name__ == "__main__":

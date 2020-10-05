@@ -16,11 +16,12 @@ source:
   path:
     FRED:
       meta: GPTime/data/meta/FRED/
-      raw: GPTime/data/raw/FRED/
+      #raw: GPTime/data/raw/FRED/
+      raw: /work/erikde/data/raw/FRED
   api:
     FRED:
-      limit: 55
-      sleep: 60
+      limit: 115
+      sleep: 60 
   files_per_folder: 100
   samples_per_json: 2000
 
