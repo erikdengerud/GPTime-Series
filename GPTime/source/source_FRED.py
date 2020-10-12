@@ -151,6 +151,15 @@ def download_ids(api_key:str, sleep_time:int=60, rate_limit:int=100) -> None:
         logger.info(f"Written files in directory {d} and currently have {tot_downloaded:>6} time series saved")
 
 
+    filename = f"raw_{num_files_written:>06}.json"
+    if num_files_written % cfg.source.files_per_folder == 0:
+        curr_dir = f"dir{num_files_written // cfg.source.files_per_folder :04d}/"
+        os.makedirs(os.path.join(cfg.source.path.FRED.raw, curr_dir), exist_ok=True)
+    with open(os.path.join(*[cfg.source.path.FRED.raw, curr_dir, filename]), "w") as fp:
+        json.dump(list_json, fp, sort_keys=True, indent=4, separators=(",", ": "))
+        fp.close()
+
+
 def source_FRED(credentials, small_sample:bool=False, id_freq_list_path:str="") -> None:
     """
     Source the full FRED dataset and save to files. https://fred.stlouisfed.org/

@@ -13,6 +13,7 @@ import glob
 import logging
 import os
 import json
+from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient, __version__
 import sys
 
 sys.path.append("")
@@ -21,40 +22,42 @@ from GPTime.config import cfg
 logger = logging.getLogger(__name__)
 
 
-def preprocess_FRED()->None:
+def preprocess_FRED(account_url:str, container_name:str)->None:
     """
     Preprocess the FRED dataset.
     """
 
-    # Read dummy file written by source.
-    num_read = 0
-    dummy_dirs = glob.glob(cfg.source.path.FRED.raw + "*")
-    for d in dummy_dirs:
-        dummy_files = glob.glob(d + "/*")
-        for fname in dummy_files:
-            with open(fname, "r") as f:
-                in_file = json.load(f)
-                num_read += 1
-    logger.info(f"Read {num_read} files.")
+    # Azure clients
+    container_client = ContainerClient(account_url=account_url, container_name=container_name)
+    all_blobs = container_client.list_blobs()
+    raw_blobs = [b["name"] for b in all_blobs if "raw" in b["name"]]
+    
+    for b in raw_blobs:
+        bname = b["name"]
+        print(f"Name of blob: {bname}")
+        blob_client = BlobClient(account_url=account_url, container_name=container_name, blob_name=bname)
+        download_stream = blob_client.download_blob()
+            my_blob.write(download_stream.readall())
+        with open(bname, "wb") as my_blob:
+            download_stream = blob_client.download_blob()
+            my_blob.write(download_stream.readall())
+            my_blob.close()
+        break
+    with open(bname, "rb") as fp:
+        blob_json = json.load(fp)
+        fp.close()
+    print(f"Number of samples in file: {len(blob_json)}\n")
+    print("Example of metadata for a time series:\n")
+    for key, value in blob_json[1].items():
+        print(f"{key}: {value}")
+    """
+    # for each blob
 
-    # Write dummy preprocessed data
-    num_preprocessed = 0
-    for i in range(10000):
-        if num_preprocessed % 1000 == 0:
-                curr_dir = f"dir{num_preprocessed // 1000 :03d}/"
-                os.makedirs(cfg.preprocess.path.FRED + curr_dir, exist_ok=True)
-        out = {
-            "source" : "FRED",
-            "id": f"{i:03d}",
-            "frequency" : np.random.choice(["Y", "Q", "M", "W", "D", "H"]),
-            "values" : list(np.random.rand(100)),
-        }
-        filename = f"{i:04d}.json"
-        with open(cfg.preprocess.path.FRED + curr_dir + filename, "w") as fp:
-            json.dump(out, fp)
-        num_preprocessed += 1
-    logger.info(f"Wrote {num_preprocessed} preprocessed files.")
-    logger.debug("Preprocess FRED ran.")
+        # for each ts in blob
+
+            # Check validity
+
+            # save
 
 if __name__ == "__main__":
-    preprocess_FRED()
+    preprocess_FRED(account_url="https://tsdatasets.blob.core.windows.net/", container_name="fred")

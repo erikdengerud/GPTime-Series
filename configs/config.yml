@@ -18,6 +18,10 @@ source:
       meta: GPTime/data/meta/FRED/
       #raw: GPTime/data/raw/FRED/
       raw: /work/erikde/data/raw/FRED
+    M4:
+      raw_train: GPTime/data/raw/M4/M4train/
+      raw_test: GPTime/data/raw/M4/M4test/
+      meta: GPTime/data/meta/M4/M4-info.csv
   api:
     FRED:
       limit: 115
@@ -29,6 +33,8 @@ source:
 preprocess:
   path: 
     FRED: GPTime/data/processed/FRED/
+    #M4: GPTime/data/processed/M4/
+    M4: /work/erikde/data/processed/M4
 
 
 dataset:
@@ -150,4 +156,3 @@ tests:
       montero: "GPTime/tests/data/M4submissions/submission-245.csv"
       naive: "GPTime/tests/data/M4submissions/submission-Naive.csv"
       naive2: "GPTime/tests/data/M4submissions/submission-Naive2.csv"
-
