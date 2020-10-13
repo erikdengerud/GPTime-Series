@@ -32,10 +32,19 @@ source:
 
 preprocess:
   path: 
-    FRED: GPTime/data/processed/FRED/
+    #FRED: GPTime/data/processed/FRED/
+    FRED: /work/erikde/data/processed/FRED
     #M4: GPTime/data/processed/M4/
     M4: /work/erikde/data/processed/M4
-
+  ts:
+    min_length:
+      yearly: 5
+      quarterly: 10
+      monthly: 26
+      weekly: 52
+      daily: 16
+      hourly: 50
+      other: 10
 
 dataset:
   dataset_module: "GPTime.model.data"
