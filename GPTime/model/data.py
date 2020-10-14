@@ -6,7 +6,8 @@ import glob
 import json
 import os
 import numpy as np
-from typing import List, Tuple
+import time
+from typing import Dict, List, Tuple
 import sys
 
 sys.path.append("")
@@ -20,28 +21,30 @@ class TSDataset(Dataset):
     """
     Time series dataset.
     TODO:
-    * Cutoff date.
-    * Sample ts function.
+    * Horizontal batch size. This is not easy wrt. scaling!
     """
     def __init__(
         self, 
         memory:int, 
-        dataset_paths:List[str], 
-        frequencies:List[str],
+        dataset_paths:Dict[str, str], 
+        frequencies:Dict[str, bool],
+        min_lengths:Dict[str, int],
         cutoff_date:str=None,  
         convolutions:bool=False,
-        num_samples_per_ts:int=1,
         horizontal_batch_size:int=1,
         ) -> None:
         super(TSDataset, self).__init__()
         self.memory = memory
         self.convolutions = convolutions
-        self.num_samples_per_ts = num_samples_per_ts
         self.horizontal_batch_size = horizontal_batch_size
+        self.min_lengths = min_lengths
+
+        if cutoff_date is not None:
+            cutoff_date_date = time.strptime(cutoff_date, "%Y-%m-%d")
 
         # Read data into memory
         all_ts = []
-        for dataset_path in dataset_paths:
+        for dataset_path in dataset_paths.values():
             dirs = glob.glob(os.path.join(dataset_path, "*"))
             for d in dirs:
                 logger.info(f"Loading dir: {d}")
@@ -51,10 +54,15 @@ class TSDataset(Dataset):
                         json_list = json.load(fp)
                         fp.close()
                     for ts in json_list:
-                        if cutoff_date is not None:
-                            # TODO: Date fixing
-                            pass
-                        if ts["frequency"] in frequencies:
+                        if frequencies[ts["frequency"]]:
+                            if cutoff_date is not None:
+                                vals = []
+                                for obs in ts["observations"]:
+                                    if time.strptime(obs["date"], "%Y-%m-%d") < cutoff_date_date:
+                                        vals.append(float(obs["value"])) 
+                                vals = np.array(vals)
+                            else:
+                                vals = np.array([float(obs["value"]) for obs in ts["observations"]])
                             new_ts = {
                                 "frequency": ts["frequency"],
                                 "values" : np.array([float(obs["value"]) for obs in ts["observations"]])
@@ -67,13 +75,19 @@ class TSDataset(Dataset):
         return len(self.all_ts)
 
     def __getitem__(self, idx) -> Tuple:
-        ids = list(idx)
-        ids_ts = [self.all_ts[i] for i in ids]
+        if not isinstance(idx, list):
+            idx = [idx]
+        #logger.info(idx)
+        #logger.info(type(idx))
+        #if torch.is_tensor(idx):
+        #    idx = idx.tolist()
+        #ids = list(idx)
+        ids_ts = [self.all_ts[i] for i in idx]
         frequencies = [obs["frequency"] for obs in ids_ts]
         values = [obs["values"] for obs in ids_ts]
-        logger.info(values)
-        for val in values:
-            logger.info(val.dtype)
+        #logger.info(values)
+        #for val in values:
+        #    logger.info(val.dtype)
 
         # Sample ts
         samples, labels = self.sample_ts(values, frequencies)
@@ -102,8 +116,8 @@ class TSDataset(Dataset):
         samples = []
         labels = []
         for ts, freq in zip(ts_list, frequency_list):
-            min_length = cfg.dataset.dataset_params.sampling.min_length[freq]
-            max_length = self.memory + self.horizontal_batch_size
+            min_length = self.min_lengths[freq]
+            max_length = max(self.memory + self.horizontal_batch_size, min_length+self.horizontal_batch_size)
 
             length = np.random.randint(min_length, max_length)
             end_index = np.random.randint(min_length, len(ts)-1)
@@ -116,8 +130,12 @@ class TSDataset(Dataset):
             scale = MASEscale(sample, freq)
             sample_scaled = sample / scale
             label_scaled = label / scale
-
+            
+            logger.info(f"length of sample: {len(sample_scaled)}")
+            logger.info(f"pad length: {self.memory - len(sample_scaled)}")
             sample_scaled_pad = np.pad(sample_scaled, (self.memory - len(sample_scaled), 0), mode="constant", constant_values=0)
+            
+            assert len(sample_scaled) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample_scaled)}, memory:{self.memory}"
 
             samples.append(sample_scaled_pad)
             labels.append(label_scaled)
@@ -130,14 +148,16 @@ class TSDataset(Dataset):
 
 if __name__=="__main__":
     ds = TSDataset(
-        memory=cfg.train.model_params_ar.in_features,
-        dataset_paths=cfg.dataset.dataset_params.path.values(),
-        frequencies=[k for k, v in cfg.dataset.dataset_params.frequencies.items() if v],
-        cutoff_date=None,  
+        memory=10,
         convolutions=False,
-        num_samples_per_ts=1,
-        horizontal_batch_size=1,)
+        **cfg.dataset.dataset_params)
     logger.debug(ds.__len__())
-    x, y, f = ds.__getitem__([1,3,100])
-    logger.debug(x.shape)
-    logger.info(x)
+    #x, y, f = ds.__getitem__([1,3,100])
+    from torch.utils.data import DataLoader
+    dl = DataLoader(dataset=ds, batch_size=2, shuffle=True, num_workers=4)
+    for i, data in enumerate(dl):
+        x, y, f = data
+        logger.info(f"Batch {i+1}")
+        break
+    #logger.debug(x.shape)
+    #logger.info(x)

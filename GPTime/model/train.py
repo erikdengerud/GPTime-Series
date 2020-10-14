@@ -37,7 +37,11 @@ def train():
     criterion = Criterion(**cfg.train.criterion_params)
     optimizer = Optimizer(model.parameters(), **cfg.train.optimizer_params)
     
-    ds = Dataset(**cfg.dataset.dataset_params)
+    ds = Dataset(
+        memory=model.memory,
+        convolutions=True if Model.__name__=="TCN" else False,
+        **cfg.dataset.dataset_params
+        )
 
     # Dataset
 

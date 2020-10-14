@@ -17,13 +17,14 @@ def MASEscale(ts:np.array, freq:str) -> float:#Tuple[np.array, float]:
         d = {
             "Y" : "yearly",
             "Q" : "quarterly",
+            "M" : "monthly",
             "W" : "weekly",
             "D" : "daily",
             "H" : "hourly",
             "O" : "other"
             }
         period = cfg.scoring.m4.periods[d[freq]]
-        logger.info(period)
+        #logger.info(period)
         scale = np.mean(np.abs((ts - np.roll(ts, shift=period))[period:]))
         #ts_scaled = ts / scale
         return scale#ts_scaled, scale
