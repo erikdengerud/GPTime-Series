@@ -3,6 +3,8 @@ data/
 .Rhistory
 .vscode
 credentials.yml
+figures/
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

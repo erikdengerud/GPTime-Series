@@ -50,14 +50,27 @@ dataset:
   dataset_module: "GPTime.model.data"
   dataset_name: "TSDataset"
   dataset_params:
+    path:
+      #FRED: /work/erikde/data/processed/FRED
+      FRED_small: /work/erikde/data/processed/FRED_small
+      #M4: /work/erikde/data/processed/M4
+    frequencies:
+      Y: True
+      Q: True
+      M: True
+      W: True
+      D: True
+      H: True
+      O: True
     sampling:
       min_length:
-        yearly: 3
-        quarterly: 10
-        monthly: 30
-        weekly: 10
-        daily: 10
-        hourly: 50
+        Y: 4
+        Q: 8
+        M: 24
+        W: 50
+        D: 14
+        H: 48
+        O: 8
 
 train:
   model_module: "GPTime.networks.mlp"
