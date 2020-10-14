@@ -147,6 +147,10 @@ def preprocess_FRED(account_url:str, container_name:str, dates=False)->None:
     logger.info(f"Processed {num_ts_processed} files")
     logger.info(f"Currently have {num_ts} time series")
     logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
+    logger.info("Proportion of frequencies: ")
+    tot_freq = sum(all_frequencies.values())
+    for k, v in all_frequencies.items():
+        logger.info(f"{k} : {v/tot_freq*100:.2f}")
     logger.info("Done preprocessing FRED.")
 
 
