@@ -165,3 +165,6 @@ tests:
       montero: "GPTime/tests/data/M4submissions/submission-245.csv"
       naive: "GPTime/tests/data/M4submissions/submission-Naive.csv"
       naive2: "GPTime/tests/data/M4submissions/submission-Naive2.csv"
+    
+figures:
+  path: figures/
