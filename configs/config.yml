@@ -159,6 +159,7 @@ scoring:
       weekly: 1
       daily: 1
       hourly: 24
+      other: 1
 tests:
   data:
     M4:
