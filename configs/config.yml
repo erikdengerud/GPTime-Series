@@ -71,17 +71,23 @@ dataset:
       H: 48
       O: 8
     cutoff_date: 
-    horizontal_batch_size: 1
+
 
 train:
+  train_set_size: 0.5
+  val_set_size: 0.2
+  test_set_size: 0.3
+  num_tests_per_ts: 1
+  max_epochs:
+  # Change model here
   model_module: "GPTime.networks.mlp"
   model_name: "MLP"
   model_params_ar:
-    in_features: 10
+    in_features: 100
     out_features: 1
     bias: True
   model_params_mlp:
-    in_features: 10
+    in_features: 100
     out_features: 1
     num_layers: 5
     n_hidden: 32
@@ -105,7 +111,14 @@ train:
     #size_average: True
     #reduce: True
     reduction: "mean"
-  max_epochs:
+
+  dataloader_module: "torch.utils.data"
+  dataloader_name: "DataLoader"
+  dataloader_params:
+    batch_size: 1024
+    shuffle: True
+    num_workers: 4
+
 
 evaluate:
 

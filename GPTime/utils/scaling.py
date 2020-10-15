@@ -24,10 +24,11 @@ def MASEscale(ts:np.array, freq:str) -> float:#Tuple[np.array, float]:
             "O" : "other"
             }
         period = cfg.scoring.m4.periods[d[freq]]
-        #logger.info(period)
         scale = np.mean(np.abs((ts - np.roll(ts, shift=period))[period:]))
-        #ts_scaled = ts / scale
-        return scale#ts_scaled, scale
+        if scale == 0:
+            scale = ts[0] if ts[0] != 0 else 1
+        assert scale > 0, f"Scale is zero! {ts}"
+        return scale
 
 if __name__ == "__main__":
     x = np.arange(20, step=2)

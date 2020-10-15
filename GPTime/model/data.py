@@ -20,8 +20,6 @@ logger = logging.getLogger(__name__)
 class TSDataset(Dataset):
     """
     Time series dataset.
-    TODO:
-    * Horizontal batch size. This is not easy wrt. scaling!
     """
     def __init__(
         self, 
@@ -34,13 +32,13 @@ class TSDataset(Dataset):
         horizontal_batch_size:int=1,
         ) -> None:
         super(TSDataset, self).__init__()
+        assert memory > max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
         self.memory = memory
         self.convolutions = convolutions
-        self.horizontal_batch_size = horizontal_batch_size
         self.min_lengths = min_lengths
-
+        self.cutoff_date = cutoff_date
         if cutoff_date is not None:
-            cutoff_date_date = time.strptime(cutoff_date, "%Y-%m-%d")
+            self.cutoff_date_date = time.strptime(cutoff_date, "%Y-%m-%d")
 
         # Read data into memory
         all_ts = []
@@ -51,23 +49,13 @@ class TSDataset(Dataset):
                 fnames = glob.glob(os.path.join(d, "*"))
                 for fname in fnames:
                     with open(fname, "r") as fp:
-                        json_list = json.load(fp)
+                        ts_list = json.load(fp)
                         fp.close()
-                    for ts in json_list:
+                    for ts in ts_list:
                         if frequencies[ts["frequency"]]:
-                            if cutoff_date is not None:
-                                vals = []
-                                for obs in ts["observations"]:
-                                    if time.strptime(obs["date"], "%Y-%m-%d") < cutoff_date_date:
-                                        vals.append(float(obs["value"])) 
-                                vals = np.array(vals)
-                            else:
-                                vals = np.array([float(obs["value"]) for obs in ts["observations"]])
-                            new_ts = {
-                                "frequency": ts["frequency"],
-                                "values" : np.array([float(obs["value"]) for obs in ts["observations"]])
-                            }
-                            all_ts.append(new_ts)
+                            prepared_ts = self.prepare_ts(ts)
+                            if prepared_ts["values"].size:
+                                all_ts.append(prepared_ts)
         self.all_ts = all_ts
         logger.info(f"Total of {len(all_ts)} time series in memory.")
 
@@ -75,89 +63,201 @@ class TSDataset(Dataset):
         return len(self.all_ts)
 
     def __getitem__(self, idx) -> Tuple:
-        if not isinstance(idx, list):
-            idx = [idx]
-        #logger.info(idx)
-        #logger.info(type(idx))
-        #if torch.is_tensor(idx):
-        #    idx = idx.tolist()
-        #ids = list(idx)
-        ids_ts = [self.all_ts[i] for i in idx]
-        frequencies = [obs["frequency"] for obs in ids_ts]
-        values = [obs["values"] for obs in ids_ts]
-        #logger.info(values)
-        #for val in values:
-        #    logger.info(val.dtype)
+        id_ts = self.all_ts[idx]
+        frequency = id_ts["frequency"]
+        values = id_ts["values"]
 
         # Sample ts
-        samples, labels = self.sample_ts(values, frequencies)
+        sample, label = self.sample_ts(values, frequency)
 
-        samples_tensor = torch.from_numpy(samples)
-        labels_tensor = torch.from_numpy(labels)
+        sample_tensor = torch.from_numpy(sample)
+        label_tensor = torch.from_numpy(label)
 
         if self.convolutions:
-            samples_tensor = samples_tensor.unsqueeze(1)
+            sample_tensor = sample_tensor.unsqueeze(0)
 
-        return samples_tensor, labels_tensor, frequencies
+        return sample_tensor, label_tensor, frequency
 
 
-    def sample_ts(self, ts_list:List[np.array], frequency_list:List[str]) -> Tuple[np.array, np.array]:
+    def sample_ts(self, ts:np.array, freq:str) -> Tuple[np.array, np.array]:
         """
         Create a sample from a time series.
 
         Sampling algorithm:
             1. Sample length in range min_length to length of model memory. Frequency dependent.
-            2. Sample end index in range 0 length of series - 1.
+            2. Sample end index in range 0 length of series.
             3. Create the sample by choosing the observations in range [max(0, end_index - length), end_index]
-            4. Use the end_index + 1 entry of the time series as label.
+            4. Use the end_index entry of the time series as label.
             5. Scale the sample using the scaling in MASE.
-            6. Scale label using the same scale as for the sample. 
+            6. Scale label using the same scale as for the sample.
         """
-        samples = []
-        labels = []
-        for ts, freq in zip(ts_list, frequency_list):
-            min_length = self.min_lengths[freq]
-            max_length = max(self.memory + self.horizontal_batch_size, min_length+self.horizontal_batch_size)
+        min_length = self.min_lengths[freq]
+        max_length = self.memory
 
-            length = np.random.randint(min_length, max_length)
-            end_index = np.random.randint(min_length, len(ts)-1)
-            logger.info(f"length:{length}")
-            logger.info(f"end_index:{end_index}")
+        length = np.random.randint(min_length, max_length)
+        end_index = np.random.randint(min_length, len(ts))
 
-            sample = ts[max(0, end_index - length): end_index]
-            label = ts[end_index]
+        sample = ts[max(0, end_index - length) : end_index]
+        label = np.array(ts[end_index])
 
-            scale = MASEscale(sample, freq)
-            sample_scaled = sample / scale
-            label_scaled = label / scale
-            
-            logger.info(f"length of sample: {len(sample_scaled)}")
-            logger.info(f"pad length: {self.memory - len(sample_scaled)}")
-            sample_scaled_pad = np.pad(sample_scaled, (self.memory - len(sample_scaled), 0), mode="constant", constant_values=0)
-            
-            assert len(sample_scaled) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample_scaled)}, memory:{self.memory}"
+        scale = MASEscale(sample, freq)
+        sample_scaled = sample / scale
+        label_scaled = label / scale
+        
+        sample_scaled_pad = np.pad(sample_scaled, (self.memory-len(sample_scaled), 0), mode="constant", constant_values=0)
+        assert len(sample_scaled_pad) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample_scaled_pad)}, memory:{self.memory}"
 
-            samples.append(sample_scaled_pad)
-            labels.append(label_scaled)
+        return np.asarray(sample_scaled_pad), np.asarray(label_scaled)
 
-        samples = np.vstack(samples)
-        labels = np.vstack(labels)
+    def prepare_ts(self, ts:Dict) -> Dict:
+        """ 
+        Prepare ts. Use only values before cutoff date. Store values as numpy array.
+        """
+        if self.cutoff_date is not None:
+            vals = []
+            for obs in ts["observations"]:
+                if time.strptime(obs["date"], "%Y-%m-%d") < self.cutoff_date_date:
+                    vals.append(float(obs["value"])) 
+            vals = np.array(vals)
+        else:
+            vals = np.array([float(obs["value"]) for obs in ts["observations"]])
+        if len(vals) < self.min_lengths[ts["frequency"]]:
+            vals = np.array([])
+        new_ts = {
+            "frequency": ts["frequency"],
+            "values" : np.array([float(obs["value"]) for obs in ts["observations"]])
+        }
+        return new_ts
 
-        return samples, labels
+class DeterministicTSDataSet(Dataset):
+    """
+    Deterministic version of the TSDataset for validation and testing.
+    """
+    def __init__(
+        self, 
+        dataset,
+        num_tests_per_ts:int,
+        )->None:
+        super(DeterministicTSDataSet, self).__init__()
+        self.memory = dataset.dataset.memory
+        self.convolutions = dataset.dataset.convolutions
+        self.min_lengths = dataset.dataset.min_lengths
+        all_ts = []
+        for ind in dataset.indices:
+            all_ts.append(dataset.dataset.all_ts[ind])
+        self.all_ts = all_ts
+        self.num_tests_per_ts = num_tests_per_ts
+        
+        self.all_samples, self.all_labels, self.all_frequencies = self.create_deterministic_samples()
+        logging.info("Created deterministic samples.")
+        
+    def __len__(self):
+        return len(self.all_samples)
+    
+    def __getitem__(self, idx):
+        #id_ts = self.all_samples[idx]
+        #frequency = id_ts["frequency"]
+        #values = id_ts["values"]
+        sample = self.all_samples[idx]
+        label = self.all_labels[idx]
+        frequency = self.all_frequencies[idx]
+
+        sample_tensor = torch.from_numpy(sample)
+        label_tensor = torch.from_numpy(label)
+
+        if self.convolutions:
+            sample_tensor = sample_tensor.unsqueeze(0)
+
+        return sample_tensor, label_tensor, frequency
+
+    def create_deterministic_samples(self)-> Tuple[np.array, np.array, np.array]:
+        all_samples = []
+        all_labels = []
+        all_frequencies = []
+        sample_indexes = [i // self.num_tests_per_ts for i in range(len(self.all_ts)*self.num_tests_per_ts)]
+        for si in sample_indexes:
+            freq = self.all_ts[si]["frequency"]
+            values = self.all_ts[si]["values"]
+            sample, label = self.sample_ts(values, freq)
+            all_samples.append(sample)
+            all_labels.append(label)
+            all_frequencies.append(freq)
+        return all_samples, all_labels, all_frequencies
+
+    def sample_ts(self, ts:np.array, freq:str) -> Tuple[np.array, np.array]:
+        min_length = self.min_lengths[freq]
+        max_length = self.memory
+        length = np.random.randint(min_length, max_length)
+        end_index = np.random.randint(min_length, len(ts))
+        sample = ts[max(0, end_index - length) : end_index]
+        label = np.array(ts[end_index])
+        scale = MASEscale(sample, freq)
+        sample_scaled = sample / scale
+        label_scaled = label / scale
+        sample_scaled_pad = np.pad(sample_scaled, (self.memory-len(sample_scaled), 0), mode="constant", constant_values=0)
+        assert len(sample_scaled_pad) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample_scaled_pad)}, memory:{self.memory}"
+        return np.asarray(sample_scaled_pad), np.asarray(label_scaled)
+
+
+
+
+
 
 
 if __name__=="__main__":
     ds = TSDataset(
-        memory=10,
-        convolutions=False,
+        memory=100,
+        convolutions=True,
         **cfg.dataset.dataset_params)
     logger.debug(ds.__len__())
     #x, y, f = ds.__getitem__([1,3,100])
+    from torch.utils.data import random_split
+    train_length = int(ds.__len__() * cfg.train.train_set_size)
+    val_length = int(ds.__len__() * cfg.train.val_set_size)
+    test_length = ds.__len__() - train_length - val_length
+    train_ds, val_ds, test_ds = random_split(
+        dataset=ds, 
+        lengths=[train_length, val_length, test_length],
+        generator=torch.torch.Generator()
+        )
+    logger.info(train_ds.__len__())
+    logger.info(val_ds.__len__())
+    logger.info(test_ds.__len__())
+
+    ds_val = DeterministicTSDataSet(val_ds, num_tests_per_ts=3)
+    logger.info(ds_val.__len__())
+    x, y, f = ds_val.__getitem__(1)
+    logger.debug(x.shape)
+    logger.debug(y.shape)
+    logger.info(x)
+    logger.info(y)
+    logger.info(f)
+    x1, y, f = ds_val.__getitem__(1)
+    x2, y, f = ds_val.__getitem__(1)
+    x3, y, f = ds_val.__getitem__(1)
+    logger.info(x1)
+    logger.info(x2)
+    logger.info(x3)
+
+    """
+    from GPTime.networks.mlp import MLP
+    from GPTime.networks.tcn import TCN
+    #model = MLP(in_features=100, out_features=1, num_layers=5, n_hidden=32, bias=True).double()
+    model = TCN(in_channels=1, channels=[8,8,8,1], kernel_size=2).double()
     from torch.utils.data import DataLoader
-    dl = DataLoader(dataset=ds, batch_size=2, shuffle=True, num_workers=4)
+    dl = DataLoader(dataset=ds, batch_size=1024, shuffle=True, num_workers=4)
     for i, data in enumerate(dl):
         x, y, f = data
         logger.info(f"Batch {i+1}")
-        break
-    #logger.debug(x.shape)
-    #logger.info(x)
+        logger.debug(x.shape)
+        logger.debug(y.shape)
+        output = model(x)
+        logger.info(output.shape)
+    """
+    """
+    logger.debug(x.shape)
+    logger.debug(y.shape)
+    logger.info(x)
+    logger.info(y)
+    logger.info(f)
+    """
