@@ -2,7 +2,9 @@ import importlib
 import sys
 import logging
 import torch
+from box import to_yaml
 from torch.utils.data import random_split
+from torch.utils.tensorboard import SummaryWriter
 sys.path.append("")
 
 from GPTime.config import cfg
@@ -16,9 +18,7 @@ Model = getattr(importlib.import_module(cfg.train.model_module), cfg.train.model
 Dataset = getattr(importlib.import_module(cfg.dataset.dataset_module), cfg.dataset.dataset_name)
 DataLoader = getattr(importlib.import_module(cfg.train.dataloader_module), cfg.train.dataloader_name)
 
-
-
-def setup():
+def train():
     if Model.__name__ == "MLP":
         model_params = cfg.train.model_params_mlp
     elif Model.__name__ == "AR":
@@ -26,10 +26,12 @@ def setup():
     elif Model.__name__ == "TCN":
         model_params = cfg.train.model_params_tcn
     else:
-        logger.warning("Unknown model name.")
+        logger.warning("Unknown model name.")   
     model = Model(**model_params)
+    logger.info(f"Number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     criterion = Criterion(**cfg.train.criterion_params)
     optimizer = Optimizer(model.parameters(), **cfg.train.optimizer_params)
+    writer = SummaryWriter(log_dir=cfg.train.tensorboard_log_dir)
     
     # Dataset
     ds = Dataset(
@@ -53,115 +55,60 @@ def setup():
     val_dl = DataLoader(val_ds, **cfg.train.dataloader_params)
     test_dl = DataLoader(train_ds, **cfg.train.dataloader_params)
 
-    return model, optimizer, criterion, train_dl, val_dl, test_dl
-
-
-def epoch():
-    pass
-
-def eval():
-    pass
-
-def test()
-
-
-def train():
-    model, optimizer, criterion, train_dl, val_dl, test_dl = setup()
-
-
-
-def train():
-    if Model.__name__ == "MLP":
-        model_params = cfg.train.model_params_mlp
-    elif Model.__name__ == "AR":
-        model_params = cfg.train.model_params_ar
-    elif Model.__name__ == "TCN":
-        model_params = cfg.train.model_params_tcn
-    else:
-        logger.warning("Unknown model name.")
-    model = Model(**model_params)
-    criterion = Criterion(**cfg.train.criterion_params)
-    optimizer = Optimizer(model.parameters(), **cfg.train.optimizer_params)
-    
-    # Dataset
-    ds = Dataset(
-        memory=model.memory,
-        convolutions=True if Model.__name__=="TCN" else False,
-        **cfg.dataset.dataset_params
-        )
-    train_length = int(ds.__len__() * cfg.train.train_set_size)
-    val_length = int(ds.__len__() * cfg.train.val_set_size)
-    test_length = ds.__len__() - train_length - val_length
-    train_ds, ds_val_tmp, ds_test_tmp  = random_split(
-        dataset=ds, 
-        lengths=[train_length, val_length, test_length],
-        generator=torch.torch.Generator()
-        )
-    val_ds = DeterministicTSDataSet(ds_val_tmp, num_tests_per_ts=cfg.train.num_tests_per_ts)
-    test_ds = DeterministicTSDataSet(ds_test_tmp, num_tests_per_ts=cfg.train.num_tests_per_ts)
-
-    # Dataloader
-    train_dl = DataLoader(train_ds, **cfg.train.dataloader_params)
-    val_dl = DataLoader(val_ds, **cfg.train.dataloader_params)
-    test_dl = DataLoader(train_ds, **cfg.train.dataloader_params)
-
-    # epoch
+    # training loop
+    val_losses = []
+    tenacity_count = 0
     for epoch in range(cfg.train.max_epochs):
-
-        running_loss = 0.0
+        model.train()
+        running_train_loss = 0.0
         for i, data in enumerate(train_dl):
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
-
-            # zero the parameter gradients
+            inputs, labels, freq = data
             optimizer.zero_grad()
-
-            # forward + backward + optimize
             outputs = net(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-            if i % 2000 == 1999:    # print every 2000 mini-batches
-                print('[%d, %5d] loss: %.3f' %
-                    (epoch + 1, i + 1, running_loss / 2000))
-                running_loss = 0.0
+        writer.add_scalar("Loss/train", running_train_loss, epoch)
 
-        val_loss = 0.0
+        model.eval()
+        running_val_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(val_dl):
-                inputs, labels = data
+                inputs, labels, freq = data
                 outputs = net(inputs)
                 loss = criterion(outputs, labels)
-                val_loss += loss.item()
-            # early stop
+                running_val_loss += loss.item()
+        writer.add_scalar("Loss/val", running_train_loss, epoch)
         
-        test_loss = 0.0
+        running_test_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(val_dl):
-                inputs, labels = data
+                inputs, labels, freq = data
                 outputs = net(inputs)
                 loss = criterion(outputs, labels)
-                test_loss += loss.item()
+                running_test_loss += loss.item()
+        writer.add_scalar("Loss/test", running_train_loss, epoch)
 
-        # add some tensorbard
+        logger.info(f"Epoch {epoch:.3d}: train_loss = {running_train_loss:.3f}, val_loss = {running_val_loss:.3f}, test_loss = {running_test_loss:.3f}")
 
+        if epoch > cfg.train.early_stop_tenacity + 1:
+            if running_val_loss < min(val_losses[-cfg.train.early_stop_tenacity :]):
+                tenacity_count = 0
+            else:
+                tenacity_count += 1
+        val_losses.append(running_val_loss)
+        if tenacity_count >= cfg.train.early_stop_tenacity:
+            break
+        
+    writer.close()
     # save model
+    filename = os.path.join(cfg.train.model_save_path, cfg.run.name + ".pt")
+    torch.save(model.state_dict(), filename)
+    filename = os.path.join(cfg.train.model_save_path, cfg.run.name + ".yaml")
+    cfg.to_yaml(filename)
 
-
-            # print statistics
-            running_loss += loss.item()
-            if i % 2000 == 1999:    # print every 2000 mini-batches
-                print('[%d, %5d] loss: %.3f' %
-                    (epoch + 1, i + 1, running_loss / 2000))
-                running_loss = 0.0
-
-    
-    # eval
-
-    # save model
-
-
+    logger.info("Finished Training")
 
 if __name__ == "__main__":
     train()

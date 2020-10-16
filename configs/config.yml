@@ -11,7 +11,6 @@ path:
   logs: "logs"
   log_config: "configs/logging.yml"
 
-
 source:
   path:
     FRED:
@@ -78,7 +77,10 @@ train:
   val_set_size: 0.2
   test_set_size: 0.3
   num_tests_per_ts: 1
-  max_epochs:
+  max_epochs: 1
+  tensorboard_log_dir: GPTime/models/runs/
+  early_stopping_tenacity: 7
+  model_save_path: GPTime/models/
   # Change model here
   model_module: "GPTime.networks.mlp"
   model_name: "MLP"
@@ -111,13 +113,13 @@ train:
     #size_average: True
     #reduce: True
     reduction: "mean"
-
   dataloader_module: "torch.utils.data"
   dataloader_name: "DataLoader"
   dataloader_params:
     batch_size: 1024
     shuffle: True
     num_workers: 4
+
 
 
 evaluate:
