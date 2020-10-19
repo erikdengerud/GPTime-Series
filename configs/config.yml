@@ -2,8 +2,8 @@ run:
   name: experiment_name
   source_hard: False
   preprocess_hard: False
-  train_hard: False
-  evaluate_hard: False
+  train_hard: True
+  evaluate_hard: True
 
 path:
   m4_train: "GPTime/data/raw/M4/M4train/"
@@ -48,11 +48,12 @@ preprocess:
 dataset:
   dataset_module: "GPTime.model.data"
   dataset_name: "TSDataset"
+  #dataset_name: DummyDataset
   dataset_params:
     dataset_paths:
       #FRED: /work/erikde/data/processed/FRED
-      FRED_small: /work/erikde/data/processed/FRED_small
-      #M4: /work/erikde/data/processed/M4
+      #FRED_small: /work/erikde/data/processed/FRED_small
+      M4: /work/erikde/data/processed/M4
     frequencies:
       Y: True
       Q: True
@@ -65,9 +66,13 @@ dataset:
       Y: 4
       Q: 8
       M: 24
+      #M: 12
       W: 50
+      #W: 12
       D: 14
+      #D: 12
       H: 48
+      #H: 12
       O: 8
     cutoff_date: 
 
@@ -77,13 +82,16 @@ train:
   val_set_size: 0.2
   test_set_size: 0.3
   num_tests_per_ts: 1
-  max_epochs: 1
+  max_epochs: 3000
+  clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
-  early_stopping_tenacity: 7
+  early_stop_tenacity: 300
   model_save_path: GPTime/models/
   # Change model here
   model_module: "GPTime.networks.mlp"
   model_name: "MLP"
+  #model_module: "GPTime.networks.ar"
+  #model_name: "AR"
   model_params_ar:
     in_features: 100
     out_features: 1
@@ -92,7 +100,7 @@ train:
     in_features: 100
     out_features: 1
     num_layers: 5
-    n_hidden: 32
+    n_hidden: 64
     bias: True
   model_params_tcn:
     in_channels: 1,
@@ -116,13 +124,14 @@ train:
   dataloader_module: "torch.utils.data"
   dataloader_name: "DataLoader"
   dataloader_params:
-    batch_size: 1024
+    batch_size: 128
     shuffle: True
     num_workers: 4
 
 
 
 evaluate:
+  results_path: GPTime/models/
 
 predict:
 

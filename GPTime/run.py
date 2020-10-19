@@ -20,26 +20,39 @@ with open("GPTime/credentials.yml", "r") as ymlfile:
 
 
 def run_pipeline():
+    tasks = {
+        "source": source,
+        "preprocess": preprocess,
+        "train": train,
+        "evaluate": evaluate,
+    }
 
-    # Check if sourced data exists
-    for ds in cfg.source.path:
-        # glob dir and check empty
-        dirs = glob.glob(cfg.source.path[ds]["raw"] + "*")
-        if len(dirs) == 0:
-            logger.info("Sourcing raw data.")
-            source(credentials=credentials, small_sample=True)
-            break
-    logger.info("Finished sourcing step.")
-    # Check if preprocessed data exists
-    for ds in cfg.preprocess.path:
-        # glob dir and check empty
-        dirs = glob.glob(cfg.preprocess.path[ds] + "*")
-        if len(dirs) == 0:
-            logger.info("preprocessing raw data.")
-            preprocess()
-            break
-    logger.info("Finished preprocessing step.")
+    perform_task = {
+        "source": cfg.run.source_hard,
+        "preprocess": cfg.run.preprocess_hard,
+        "train": cfg.run.train_hard,
+        "evaluate": cfg.run.evaluate_hard,
+    }   
 
+    for task in tasks:
+        if perform_task[task]:
+            logger.info(f"Task: {task}")
+            try:
+                tasks[task]()
+            except:
+                logger.error(f"Task {task} failed")
+                raise
+    """
+    logger.info("Training step.")
+    train()
+    logger.info("Done training model.")
+    logger.info("Evaluating model.")
+    m4_res = evaluate(cfg)
+    logger.info("Done evaluating")
+    logger.info("Results:")
+    logger.info(m4_res)
+    """
+    """
     # Check if trained model exists. Must check if all parameters are equal.
     model_names = [m[:-3] for m in glob.glob("GPTime/models/*.pt")]
     if cfg.run.name in model_names:
@@ -55,7 +68,7 @@ def run_pipeline():
     # Evaluate model on test data.
     evaluate()
     logger.info("Finished evaluating step.")
-
+    """
 if __name__ == "__main__":
     run_pipeline()
 

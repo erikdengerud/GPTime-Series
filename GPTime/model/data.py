@@ -32,7 +32,7 @@ class TSDataset(Dataset):
         horizontal_batch_size:int=1,
         ) -> None:
         super(TSDataset, self).__init__()
-        assert memory > max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
+        assert memory >= max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
         self.memory = memory
         self.convolutions = convolutions
         self.min_lengths = min_lengths
@@ -199,12 +199,93 @@ class DeterministicTSDataSet(Dataset):
         return np.asarray(sample_scaled_pad), np.asarray(label_scaled)
 
 
+class DummyDataset(Dataset):
+    """
+    Dummy dataset for debugging. Using the same structure as the time series dataset.
+    """
+    def __init__(
+        self, 
+        memory:int, 
+        dataset_paths:Dict[str, str], 
+        frequencies:Dict[str, bool],
+        min_lengths:Dict[str, int],
+        cutoff_date:str=None,  
+        convolutions:bool=False,
+        horizontal_batch_size:int=1,
+        ) -> None:
+        super(DummyDataset, self).__init__()
+        assert memory > max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
+        self.memory = memory
+        self.convolutions = convolutions
+        self.min_lengths = min_lengths
 
+        # Read data into memory
+        all_ts = []
+        for i in range(100):
+            l = np.random.randint(100, 200)
+            vals = np.array([i%2 for i in range(l)])
+            new_ts = {
+                "frequency": np.random.choice(["Y", "Q", "M", "W", "D", "H", "O"]),
+                "values" : vals
+            }
+            all_ts.append(new_ts)
+        self.all_ts = all_ts
+        logger.info(f"Total of {len(all_ts)} time series in memory.")
 
+    def __len__(self):
+        return len(self.all_ts)
 
+    def __getitem__(self, idx) -> Tuple:
+        id_ts = self.all_ts[idx]
+        frequency = id_ts["frequency"]
+        values = id_ts["values"]
+
+        # Sample ts
+        sample, label = self.sample_ts(values, frequency)
+
+        sample_tensor = torch.from_numpy(sample).double()
+        label_tensor = torch.from_numpy(label).double()
+
+        if self.convolutions:
+            sample_tensor = sample_tensor.unsqueeze(0)
+
+        return sample_tensor, label_tensor, frequency
+
+    def sample_ts(self, ts:np.array, freq:str) -> Tuple[np.array, np.array]:
+
+        min_length = self.min_lengths[freq]
+        max_length = self.memory
+
+        length = np.random.randint(min_length, max_length)
+        end_index = np.random.randint(min_length, len(ts))
+
+        sample = ts[max(0, end_index - length) : end_index]
+        label = np.array(ts[end_index])
+        
+        sample_pad = np.pad(sample, (self.memory-len(sample), 0), mode="constant", constant_values=0)
+        assert len(sample_pad) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample_pad)}, memory:{self.memory}"
+
+        return np.asarray(sample_pad), np.asarray(label)
 
 
 if __name__=="__main__":
+    ds = DummyDataset(
+        memory=100,
+        convolutions=False,
+        **cfg.dataset.dataset_params)
+    from torch.utils.data import DataLoader
+    dl = DataLoader(dataset=ds, batch_size=1, shuffle=True, num_workers=4)
+    for i, data in enumerate(dl):
+        x, y, f = data
+        logger.info(f"Batch {i+1}")
+        logger.debug(x.shape)
+        logger.debug(y.shape)
+        logger.debug(x)
+        logger.debug(y)
+        #output = model(x)
+        #logger.info(output.shape)
+        break
+    """
     ds = TSDataset(
         memory=100,
         convolutions=True,
@@ -238,6 +319,7 @@ if __name__=="__main__":
     logger.info(x1)
     logger.info(x2)
     logger.info(x3)
+    """
 
     """
     from GPTime.networks.mlp import MLP

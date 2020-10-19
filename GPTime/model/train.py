@@ -2,7 +2,7 @@ import importlib
 import sys
 import logging
 import torch
-from box import to_yaml
+import os
 from torch.utils.data import random_split
 from torch.utils.tensorboard import SummaryWriter
 sys.path.append("")
@@ -27,7 +27,7 @@ def train():
         model_params = cfg.train.model_params_tcn
     else:
         logger.warning("Unknown model name.")   
-    model = Model(**model_params)
+    model = Model(**model_params).double()
     logger.info(f"Number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
     criterion = Criterion(**cfg.train.criterion_params)
     optimizer = Optimizer(model.parameters(), **cfg.train.optimizer_params)
@@ -64,33 +64,48 @@ def train():
         for i, data in enumerate(train_dl):
             inputs, labels, freq = data
             optimizer.zero_grad()
-            outputs = net(inputs)
+            outputs = model(inputs)
+            #logger.info(f"Shape of output: {outputs.shape}")
+            labels = labels.unsqueeze(1)
+            #logger.info(f"Shape of labels: {labels.shape}")
+            assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
             loss = criterion(outputs, labels)
             loss.backward()
+            if cfg.train.clip_gradients:
+                for p in model.parameters():
+                    p.grad.data.clamp_(max=1e5, min=-1e5)
             optimizer.step()
-            running_loss += loss.item()
+            running_train_loss += loss.item()
         writer.add_scalar("Loss/train", running_train_loss, epoch)
+        running_train_loss = running_train_loss / i
 
         model.eval()
         running_val_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(val_dl):
                 inputs, labels, freq = data
-                outputs = net(inputs)
+                outputs = model(inputs)
+                labels = labels.unsqueeze(1)
+                assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
                 loss = criterion(outputs, labels)
                 running_val_loss += loss.item()
-        writer.add_scalar("Loss/val", running_train_loss, epoch)
+        writer.add_scalar("Loss/val", running_val_loss, epoch)
+        running_val_loss = running_val_loss / i
         
         running_test_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(val_dl):
                 inputs, labels, freq = data
-                outputs = net(inputs)
+                outputs = model(inputs)
+                labels = labels.unsqueeze(1)
+                assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
                 loss = criterion(outputs, labels)
                 running_test_loss += loss.item()
-        writer.add_scalar("Loss/test", running_train_loss, epoch)
+        writer.add_scalar("Loss/test", running_test_loss , epoch)
+        running_test_loss = running_test_loss / i
 
-        logger.info(f"Epoch {epoch:.3d}: train_loss = {running_train_loss:.3f}, val_loss = {running_val_loss:.3f}, test_loss = {running_test_loss:.3f}")
+        if epoch % 100 == 0: 
+            logger.info(f"Epoch {epoch+1:>3d}: train_loss = {running_train_loss:.5f}, val_loss = {running_val_loss:.5f}, test_loss = {running_test_loss:.5f}")
 
         if epoch > cfg.train.early_stop_tenacity + 1:
             if running_val_loss < min(val_losses[-cfg.train.early_stop_tenacity :]):
