@@ -12,6 +12,7 @@ from GPTime.config import cfg
 from GPTime.source.data_sourcing import source
 from GPTime.preprocess.preprocessing import preprocess
 from GPTime.model.train import train
+from GPTime.model.train2 import train2
 from GPTime.model.evaluate import evaluate
 with open("GPTime/credentials.yml", "r") as ymlfile:
     credentials = Box(yaml.safe_load(ymlfile))
@@ -23,7 +24,8 @@ def run_pipeline():
     tasks = {
         "source": source,
         "preprocess": preprocess,
-        "train": train,
+        #"train": train,
+        "train": train2,
         "evaluate": evaluate,
     }
 

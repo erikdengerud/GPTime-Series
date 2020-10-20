@@ -29,7 +29,6 @@ class TSDataset(Dataset):
         min_lengths:Dict[str, int],
         cutoff_date:str=None,  
         convolutions:bool=False,
-        horizontal_batch_size:int=1,
         ) -> None:
         super(TSDataset, self).__init__()
         assert memory >= max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
@@ -267,8 +266,116 @@ class DummyDataset(Dataset):
 
         return np.asarray(sample_pad), np.asarray(label)
 
+class MonteroMansoHyndmanDS(Dataset):
+    """
+    Dataset on the form of Monetero-Manso and Hyndman. Last 12:1 observations of each ts
+    from M4 as samples. Last obs as label. Scaled by MASE.
+    """
+    def __init__(
+        self, 
+        memory:int, 
+        dataset_paths:Dict[str, str], 
+        frequencies:Dict[str, bool],
+        min_lengths:Dict[str, int],
+        cutoff_date:str=None,  
+        convolutions:bool=False,
+        ) -> None:
+        super(MonteroMansoHyndmanDS, self).__init__()
+        assert memory >= max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
+        self.memory = memory
+        self.convolutions = convolutions
+        self.min_lengths = min_lengths
+        self.cutoff_date = cutoff_date
+        if cutoff_date is not None:
+            self.cutoff_date_date = time.strptime(cutoff_date, "%Y-%m-%d")
+
+        # Read data into memory
+        all_ts = []
+        for dataset_path in dataset_paths.values():
+            dirs = glob.glob(os.path.join(dataset_path, "*"))
+            for d in dirs:
+                logger.info(f"Loading dir: {d}")
+                fnames = glob.glob(os.path.join(d, "*"))
+                for fname in fnames:
+                    with open(fname, "r") as fp:
+                        ts_list = json.load(fp)
+                        fp.close()
+                    for ts in ts_list:
+                        if frequencies[ts["frequency"]]:
+                            sample, label = self.prepare_ts(ts)
+                            if sample.size:
+                                all_ts.append((sample, label))
+        self.all_ts = all_ts
+        logger.info(f"Total of {len(all_ts)} time series in memory.")
+
+    def __len__(self):
+        return len(self.all_ts)
+
+    def __getitem__(self, idx) -> Tuple:
+        sample, label = self.all_ts[idx]
+        sample_tensor = torch.from_numpy(np.asarray(sample))
+        label_tensor = torch.from_numpy(np.asarray(label))
+        if self.convolutions:
+            sample_tensor = sample_tensor.unsqueeze(0)
+        return sample_tensor, label_tensor, 0
+
+    def prepare_ts(self, ts:Dict) -> Tuple:
+        freq = ts["frequency"]
+        values = np.array([float(obs["value"]) for obs in ts["observations"]])
+        sample = values[-(self.memory + 1):-1]
+        label = values[-1]
+        scale = MASEscale(sample, freq)
+        sample_scaled = sample / scale
+        label_scaled = label / scale
+    
+        return sample_scaled, label_scaled
+
+class MonteroMansoHyndmanSimpleDS(Dataset):
+    """
+    Dataset on the form of Monetero-Manso and Hyndman. Last 12:1 observations of each ts
+    from M4 as samples. Last obs as label. Scaled by MASE.
+    """
+    def __init__(
+        self, 
+        arr:np.array,
+        memory:int, 
+        dataset_paths:Dict[str, str], 
+        frequencies:Dict[str, bool],
+        min_lengths:Dict[str, int],
+        cutoff_date:str=None,  
+        convolutions:bool=False,
+        ) -> None:
+        super(MonteroMansoHyndmanSimpleDS, self).__init__()
+        logger.info("Simple dataset.")
+        #arr = np.load(dataset_paths["M4_global"])
+
+        self.X = torch.from_numpy(arr)
+        
+    def __len__(self):
+        return self.X.shape[0]
+
+    def __getitem__(self, idx):
+        return self.X[idx, :-1], self.X[idx, -1], 0
+
 
 if __name__=="__main__":
+    ds = MonteroMansoHyndmanSimpleDS(
+        memory=12,
+        convolutions=False,
+        **cfg.dataset.dataset_params)
+    from torch.utils.data import DataLoader
+    dl = DataLoader(dataset=ds, batch_size=16, shuffle=True, num_workers=4)
+    for i, data in enumerate(dl):
+        x, y, f = data
+        logger.info(f"Batch {i+1}")
+        logger.debug(x.shape)
+        logger.debug(y.shape)
+        logger.debug(x)
+        logger.debug(y)
+        #output = model(x)
+        #logger.info(output.shape)
+        break
+    """
     ds = DummyDataset(
         memory=100,
         convolutions=False,
@@ -285,6 +392,7 @@ if __name__=="__main__":
         #output = model(x)
         #logger.info(output.shape)
         break
+    """
     """
     ds = TSDataset(
         memory=100,

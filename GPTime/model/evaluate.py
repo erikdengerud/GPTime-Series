@@ -16,19 +16,19 @@ Model = getattr(importlib.import_module(cfg.train.model_module), cfg.train.model
 Dataset = getattr(importlib.import_module(cfg.dataset.dataset_module), cfg.dataset.dataset_name)
 DataLoader = getattr(importlib.import_module(cfg.train.dataloader_module), cfg.train.dataloader_name)
 
-def evaluate(box_config):
+def evaluate():
 
     # load model
     if Model.__name__ == "MLP":
-        model_params = box_config.train.model_params_mlp
+        model_params = cfg.train.model_params_mlp
     elif Model.__name__ == "AR":
-        model_params = box_config.train.model_params_ar
+        model_params = cfg.train.model_params_ar
     elif Model.__name__ == "TCN":
-        model_params = box_config.train.model_params_tcn
+        model_params = cfg.train.model_params_tcn
     else:
         logger.warning("Unknown model name.")   
     model = Model(**model_params).double()
-    model_path = os.path.join(box_config.train.model_save_path, box_config.run.name + ".pt")
+    model_path = os.path.join(cfg.train.model_save_path, cfg.run.name + ".pt")
     model.load_state_dict(torch.load(model_path))
     model.eval()
 
@@ -36,11 +36,11 @@ def evaluate(box_config):
     preds = predict_M4(model=model)
 
     # score test data, save scores
-    result_file = os.path.join(box_config.evaluate.results_path, box_config.run.name +".csv")
+    result_file = os.path.join(cfg.evaluate.results_path, cfg.run.name +".csv")
     d = score_M4(preds, df_results_name=result_file)
-
+    logger.info(d)
     # save predictions?
     #return d
 
 if __name__ == "__main__":
-    evaluate(cfg)
+    evaluate()

@@ -2,9 +2,11 @@
 Data preprocessing.
 """
 from typing import Dict, Tuple, Sequence
+import glob
 import pandas as pd
 import numpy as np
-
+import sys
+sys.path.append("")
 
 def preprocess_dataset(
     experiments: Dict,
@@ -14,8 +16,6 @@ def preprocess_dataset(
     all_test_files: Sequence,
 ) -> Dict:
     datasets = {}
-    # all_train_files = glob.glob("..\\data\\M4train\\*")
-    # all_test_files = glob.glob("..\\data\\M4test\\*")
 
     for experiment in experiments.keys():
         if experiments[experiment]:
@@ -41,8 +41,12 @@ def preprocess_dataset(
                 df_test = pd.read_csv(test_f, index_col=0)
                 num_non_na_train.append(min(df_train.count(axis=1).values))
                 num_non_na_test.append(min(df_test.count(axis=1).values))
-            num_non_na_train = min(num_non_na_train)
-            num_non_na_test = min(num_non_na_test)
+                print(train_f, num_non_na_train, num_non_na_test)
+            num_non_na_train_int = min(num_non_na_train)
+            num_non_na_test_int = min(num_non_na_test)
+            print(f"num_non_na_train_int = {num_non_na_train_int}")
+            print(f"num_non_na_test_int = {num_non_na_test_int}")
+            
 
             # Creating the dataset
             l_train = []
@@ -54,15 +58,15 @@ def preprocess_dataset(
                 df_test = pd.read_csv(test_f, index_col=0)
                 Y_train = df_train.to_numpy()
                 Y_test = df_test.to_numpy()
-                assert Y_train.shape[0] == Y_test.shape[0]
+                assert Y_train.shape[0] == Y_test.shape[0], f"Y_train.shape[0], {Y_train.shape[0]} differs from Y_test.shape[0], {Y_test.shape[0]}"
                 for i in range(Y_train.shape[0]):
                     s_train = Y_train[i][~np.isnan(Y_train[i])]
                     s_test = Y_test[i][~np.isnan(Y_test[i])]
                     l_train_tmp.append(
-                        s_train[-num_non_na_train:]
+                        s_train[-num_non_na_train_int:]
                     )  # shortest in the train set
                     l_test_tmp.append(
-                        s_test[:num_non_na_test]
+                        s_test[:num_non_na_test_int]
                     )  # shortest in the test set
 
                 # Scaling using the scaling in MASE
@@ -116,6 +120,8 @@ def preprocess_dataset(
 
             X_train = np.array(l_train)
             X_test = np.array(l_test)
+            print(f"X_train.shape = {X_train.shape}")
+            print(f"X_test.shape = {X_test.shape}")
             datasets[experiment] = (X_train, X_test)
 
     # Check for Inf values that can occur during scaling
@@ -157,6 +163,10 @@ def preprocess_dataset(
         # create dfs and write
 
 
+    global_train = datasets["GLOBAL"][0]
+    np.save("M4_GLOBAL_train.npy", global_train)
+    global_test = datasets["GLOBAL"][1]
+    np.save("M4_GLOBAL_test.npy", global_test)
     return datasets
 
 if __name__ == "__main__":
@@ -187,5 +197,17 @@ if __name__ == "__main__":
         "DAILY"     : 1, 
         "HOURLY"    : 24
     }
+    all_test_files = glob.glob("GPTime/data/raw/M4/M4test/*")
+    all_train_files = glob.glob("GPTime/data/raw/M4/M4train/*")
+    all_train_files.sort()
+    all_test_files.sort()
+    print(all_train_files)
+    print(all_test_files)
 
-    datasests = preprocess_dataset()
+    datasests = preprocess_dataset(
+        experiments,
+        config,
+        periods,
+        all_train_files,
+        all_test_files,
+        )

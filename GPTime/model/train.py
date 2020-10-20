@@ -42,14 +42,22 @@ def train():
     train_length = int(ds.__len__() * cfg.train.train_set_size)
     val_length = int(ds.__len__() * cfg.train.val_set_size)
     test_length = ds.__len__() - train_length - val_length
-    train_ds, ds_val_tmp, ds_test_tmp  = random_split(
+    #train_ds, ds_val_tmp, ds_test_tmp  = random_split(
+    """
+    ds_train_tmp, ds_val_tmp, ds_test_tmp  = random_split(
         dataset=ds, 
         lengths=[train_length, val_length, test_length],
         generator=torch.torch.Generator()
         )
+    train_ds = DeterministicTSDataSet(ds_train_tmp, num_tests_per_ts=cfg.train.num_tests_per_ts)
     val_ds = DeterministicTSDataSet(ds_val_tmp, num_tests_per_ts=cfg.train.num_tests_per_ts)
     test_ds = DeterministicTSDataSet(ds_test_tmp, num_tests_per_ts=cfg.train.num_tests_per_ts)
-
+    """
+    train_ds, val_ds, test_ds = random_split(
+        dataset=ds, 
+        lengths=[train_length, val_length, test_length],
+        generator=torch.torch.Generator()
+        )
     # Dataloader
     train_dl = DataLoader(train_ds, **cfg.train.dataloader_params)
     val_dl = DataLoader(val_ds, **cfg.train.dataloader_params)
@@ -58,7 +66,7 @@ def train():
     # training loop
     val_losses = []
     tenacity_count = 0
-    for epoch in range(cfg.train.max_epochs):
+    for epoch in range(1, cfg.train.max_epochs+1):
         model.train()
         running_train_loss = 0.0
         for i, data in enumerate(train_dl):
@@ -76,8 +84,9 @@ def train():
                     p.grad.data.clamp_(max=1e5, min=-1e5)
             optimizer.step()
             running_train_loss += loss.item()
+        running_train_loss = running_train_loss / len(train_ds)
         writer.add_scalar("Loss/train", running_train_loss, epoch)
-        running_train_loss = running_train_loss / i
+        
 
         model.eval()
         running_val_loss = 0.0
@@ -89,8 +98,9 @@ def train():
                 assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
                 loss = criterion(outputs, labels)
                 running_val_loss += loss.item()
+        running_val_loss = running_val_loss / len(val_ds)
         writer.add_scalar("Loss/val", running_val_loss, epoch)
-        running_val_loss = running_val_loss / i
+        
         
         running_test_loss = 0.0
         with torch.no_grad():
@@ -101,11 +111,12 @@ def train():
                 assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
                 loss = criterion(outputs, labels)
                 running_test_loss += loss.item()
+        running_test_loss = running_test_loss / len(test_ds)
         writer.add_scalar("Loss/test", running_test_loss , epoch)
-        running_test_loss = running_test_loss / i
 
-        if epoch % 100 == 0: 
-            logger.info(f"Epoch {epoch+1:>3d}: train_loss = {running_train_loss:.5f}, val_loss = {running_val_loss:.5f}, test_loss = {running_test_loss:.5f}")
+
+        if epoch % 1 == 0: 
+            logger.info(f"Epoch {epoch:>3d}: train_loss = {running_train_loss:.5f}, val_loss = {running_val_loss:.5f}, test_loss = {running_test_loss:.5f}")
 
         if epoch > cfg.train.early_stop_tenacity + 1:
             if running_val_loss < min(val_losses[-cfg.train.early_stop_tenacity :]):

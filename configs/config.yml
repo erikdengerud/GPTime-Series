@@ -47,13 +47,16 @@ preprocess:
 
 dataset:
   dataset_module: "GPTime.model.data"
-  dataset_name: "TSDataset"
+  #dataset_name: "TSDataset"
   #dataset_name: DummyDataset
+  dataset_name: MonteroMansoHyndmanSimpleDS
   dataset_params:
     dataset_paths:
       #FRED: /work/erikde/data/processed/FRED
       #FRED_small: /work/erikde/data/processed/FRED_small
-      M4: /work/erikde/data/processed/M4
+      #M4: /work/erikde/data/processed/M4
+      M4_global: M4_GLOBAL_train.npy
+      M4_global_test: M4_GLOBAL_test.npy
     frequencies:
       Y: True
       Q: True
@@ -63,29 +66,28 @@ dataset:
       H: True
       O: True
     min_lengths:
-      Y: 4
-      Q: 8
-      M: 24
+      Y: 11
+      Q: 11
+      M: 11
       #M: 12
-      W: 50
+      W: 11
       #W: 12
-      D: 14
+      D: 11
       #D: 12
-      H: 48
+      H: 11
       #H: 12
-      O: 8
+      O: 11
     cutoff_date: 
 
-
 train:
-  train_set_size: 0.5
-  val_set_size: 0.2
-  test_set_size: 0.3
+  train_set_size: 0.8
+  val_set_size: 0.15
+  test_set_size: 0.05
   num_tests_per_ts: 1
-  max_epochs: 3000
+  max_epochs: 1000
   clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
-  early_stop_tenacity: 300
+  early_stop_tenacity: 25
   model_save_path: GPTime/models/
   # Change model here
   model_module: "GPTime.networks.mlp"
@@ -97,10 +99,10 @@ train:
     out_features: 1
     bias: True
   model_params_mlp:
-    in_features: 100
+    in_features: 12
     out_features: 1
     num_layers: 5
-    n_hidden: 64
+    n_hidden: 32
     bias: True
   model_params_tcn:
     in_channels: 1,
@@ -116,15 +118,20 @@ train:
     weight_decay: 0
     amsgrad: False
   criterion_module: "torch.nn"
-  criterion_name: "MSELoss"
+  criterion_name: "L1Loss"
   criterion_params:
     #size_average: True
     #reduce: True
     reduction: "mean"
+  #criterion_name: "MSELoss"
+  #criterion_params:
+    #size_average: True
+    #reduce: True
+    #reduction: "mean"
   dataloader_module: "torch.utils.data"
   dataloader_name: "DataLoader"
   dataloader_params:
-    batch_size: 128
+    batch_size: 1024
     shuffle: True
     num_workers: 4
 

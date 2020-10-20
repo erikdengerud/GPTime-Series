@@ -35,7 +35,7 @@ def multi_step_predict(
     x = torch.from_numpy(train_data)
     with torch.no_grad():
         for h in range(horizon):
-            current_x = x[:, -model.memory :]
+            current_x = x[:, -getattr(model, "memory") :]
             pred = getattr(model, "forward")(current_x)
             x = torch.cat((x, pred), axis=1)
     predictions = x[:, -horizon:].cpu().detach().numpy()
