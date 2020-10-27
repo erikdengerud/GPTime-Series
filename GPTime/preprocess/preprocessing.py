@@ -18,15 +18,18 @@ from GPTime.config import cfg
 logger = logging.getLogger(__name__)
 
 from GPTime.preprocess.preprocess_FRED import preprocess_FRED
+from GPTime.preprocess.preprocess_M4 import preprocess_M4
 
-def preprocess()->None:
+
+def preprocess() -> None:
     """
     Preprocess raw data.
     """
-    preprocess_FRED()
+
+    # preprocess_FRED()
+    preprocess_M4()
 
     logger.debug("Preprocess ran.")
-
 
 
 if __name__ == "__main__":

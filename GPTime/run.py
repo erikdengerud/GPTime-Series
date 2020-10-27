@@ -14,17 +14,18 @@ from GPTime.preprocess.preprocessing import preprocess
 from GPTime.model.train import train
 from GPTime.model.train2 import train2
 from GPTime.model.evaluate import evaluate
+
 with open("GPTime/credentials.yml", "r") as ymlfile:
     credentials = Box(yaml.safe_load(ymlfile))
 
-#source(credentials, small_sample=True)
+# source(credentials, small_sample=True)
 
 
 def run_pipeline():
     tasks = {
         "source": source,
         "preprocess": preprocess,
-        #"train": train,
+        # "train": train,
         "train": train2,
         "evaluate": evaluate,
     }
@@ -34,7 +35,7 @@ def run_pipeline():
         "preprocess": cfg.run.preprocess_hard,
         "train": cfg.run.train_hard,
         "evaluate": cfg.run.evaluate_hard,
-    }   
+    }
 
     for task in tasks:
         if perform_task[task]:
@@ -71,6 +72,8 @@ def run_pipeline():
     evaluate()
     logger.info("Finished evaluating step.")
     """
+
+
 if __name__ == "__main__":
     run_pipeline()
 

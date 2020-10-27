@@ -6,7 +6,9 @@ import glob
 import pandas as pd
 import numpy as np
 import sys
+
 sys.path.append("")
+
 
 def preprocess_dataset(
     experiments: Dict,
@@ -46,7 +48,6 @@ def preprocess_dataset(
             num_non_na_test_int = min(num_non_na_test)
             print(f"num_non_na_train_int = {num_non_na_train_int}")
             print(f"num_non_na_test_int = {num_non_na_test_int}")
-            
 
             # Creating the dataset
             l_train = []
@@ -58,7 +59,9 @@ def preprocess_dataset(
                 df_test = pd.read_csv(test_f, index_col=0)
                 Y_train = df_train.to_numpy()
                 Y_test = df_test.to_numpy()
-                assert Y_train.shape[0] == Y_test.shape[0], f"Y_train.shape[0], {Y_train.shape[0]} differs from Y_test.shape[0], {Y_test.shape[0]}"
+                assert (
+                    Y_train.shape[0] == Y_test.shape[0]
+                ), f"Y_train.shape[0], {Y_train.shape[0]} differs from Y_test.shape[0], {Y_test.shape[0]}"
                 for i in range(Y_train.shape[0]):
                     s_train = Y_train[i][~np.isnan(Y_train[i])]
                     s_test = Y_test[i][~np.isnan(Y_test[i])]
@@ -157,11 +160,10 @@ def preprocess_dataset(
         ):
             print("Unsuccessful in removing Inf values.")
             print(f"WARNING: Inf values in dataset {d}.")
-        
+
     if experiments["GLOBAL"]:
         X_train, X_test = datasets["GLOBAL"]
         # create dfs and write
-
 
     global_train = datasets["GLOBAL"][0]
     np.save("M4_GLOBAL_train.npy", global_train)
@@ -169,33 +171,34 @@ def preprocess_dataset(
     np.save("M4_GLOBAL_test.npy", global_test)
     return datasets
 
+
 if __name__ == "__main__":
     experiments = {
-        "GLOBAL" : True,
-        "YEARLY" : False,
-        "QUARTERLY" : False,
-        "MONTHLY" : False,
-        "WEEKLY" : False,
-        "DAILY" : False,
-        "HOURLY" : False,
+        "GLOBAL": True,
+        "YEARLY": False,
+        "QUARTERLY": False,
+        "MONTHLY": False,
+        "WEEKLY": False,
+        "DAILY": False,
+        "HOURLY": False,
     }
 
     config = {
-        "MASE_SCALE" : True,
-        "MASE_SCALE_SEASONALITY" : True,
-        "SCALE_SET" : "FULL" # FULL or SUB. Either the all the data or just the last 12 obs.
+        "MASE_SCALE": True,
+        "MASE_SCALE_SEASONALITY": True,
+        "SCALE_SET": "FULL",  # FULL or SUB. Either the all the data or just the last 12 obs.
     }
 
     # Periods used in MASE scaling
-    #M4 paper defines yearly, weekly and daily to be 1
+    # M4 paper defines yearly, weekly and daily to be 1
 
     periods = {
-        "YEARLY"    : 1, 
-        "QUARTERLY" : 4, 
-        "MONTHLY"   : 12, 
-        "WEEKLY"    : 1, 
-        "DAILY"     : 1, 
-        "HOURLY"    : 24
+        "YEARLY": 1,
+        "QUARTERLY": 4,
+        "MONTHLY": 12,
+        "WEEKLY": 1,
+        "DAILY": 1,
+        "HOURLY": 24,
     }
     all_test_files = glob.glob("GPTime/data/raw/M4/M4test/*")
     all_train_files = glob.glob("GPTime/data/raw/M4/M4train/*")
@@ -203,11 +206,12 @@ if __name__ == "__main__":
     all_test_files.sort()
     print(all_train_files)
     print(all_test_files)
-
+    """
     datasests = preprocess_dataset(
         experiments,
         config,
         periods,
         all_train_files,
         all_test_files,
-        )
+    )
+    """
