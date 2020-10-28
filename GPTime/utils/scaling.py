@@ -42,6 +42,7 @@ class MASEScaler(TransformerMixin, BaseEstimator):
     """
     def __init__(self, seasonality:bool=True):
         self.seasonality = seasonality
+        """
         self.periods = {
             "Y" : 1,
             "Q" : 4,
@@ -51,6 +52,7 @@ class MASEScaler(TransformerMixin, BaseEstimator):
             "H" : 24,
             "O" : 1
             }
+        """
 
     def _reset(self):
         """Reset internal data-dependent state of the scaler, if necessary.
@@ -59,14 +61,13 @@ class MASEScaler(TransformerMixin, BaseEstimator):
         if hasattr(self, 'scale_'):
             del self.scale_
 
-    def fit(self, X, freq, axis=1):
+    def fit(self, X:np.array, freq:int, axis=1) -> object:
         self._reset()
         return self.partial_fit(X, freq, axis=axis)
 
-    def partial_fit(self, X:np.array, freq:str, axis:int=1) -> object:
+    def partial_fit(self, X:np.array, freq:int, axis:int=1) -> object:
         try:
-            period = self.periods[freq]
-            scale = np.nanmean(np.abs(X - np.roll(X, shift=period, axis=axis))[:,period:], axis=axis)      
+            scale = np.nanmean(np.abs(X - np.roll(X, shift=freq, axis=axis))[:,freq:], axis=axis)      
             scale[scale == 0] = 1
             scale[np.isinf(scale)] = 1
             scale[np.isnan(scale)] = 1
@@ -74,7 +75,7 @@ class MASEScaler(TransformerMixin, BaseEstimator):
         except Exception as e:
             logger.warning(e)
             self.scale_ = None
-        logger.info(self.scale_)
+        #logger.info(self.scale_)
         return self
 
     def transform(self, X: np.array) -> np.array:
@@ -82,8 +83,8 @@ class MASEScaler(TransformerMixin, BaseEstimator):
         Scale the data.
         """
         check_is_fitted(self)
-        logger.info(X.shape)
-        logger.info(self.scale_.shape)
+        #logger.info(X.shape)
+        #logger.info(self.scale_.shape)
         X = X.astype(float)
         X /= self.scale_
         return X
@@ -105,7 +106,7 @@ if __name__ == "__main__":
     Y = np.array(
         [
             [3900, 4500, 4200, 4000, 4000, 3900, 4200, 4200, 4200, 5000, 4400],
-            [3540, 3560, 3560, 3560, 3520, 3290, 3360, 3390, 3340, 3330, 3340]
+            [3540, 3560, 3560, 3560, 3520, 3290, 3360, 3390, np.nan, 3330, 3340]
         ]
     )
     logger.info(len(x))
@@ -119,7 +120,7 @@ if __name__ == "__main__":
 
     logger.info(Y.shape)
     scaler = MASEScaler()
-    scaled = scaler.fit_transform(Y, "Q")
+    scaled = scaler.fit_transform(Y, 4)
     logger.info(scaled)
     descaled = scaler.inverse_transform(scaled)
     logger.info(descaled)

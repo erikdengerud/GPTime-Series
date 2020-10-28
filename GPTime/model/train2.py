@@ -66,10 +66,12 @@ def train2():
     trainloader = DataLoader(ds, **cfg.train.dataloader_params)
     valloader = DataLoader(ds_val, **cfg.train.dataloader_params)
 
-    num_epochs = 1000
-    tenacity = 25
+    num_epochs = 100
+    tenacity =5 
     early_stop_count = 0
     low_loss = np.inf
+    np.random.seed(1729)
+    torch.manual_seed(1729)
     for ep in range(1, cfg.train.max_epochs + 1):
         running_loss = 0.0
         model.train()
@@ -99,7 +101,7 @@ def train2():
                 print(f"Early stop after epoch {ep}.")
                 break
             # print(f"Epoch {epoch:3>} loss: {running_loss}")
-        if ep % 20 == 0:
+        if ep % 10 == 0:
             logger.info(f"Epoch {ep:3>} train loss: {running_loss}")
             logger.info(f"Epoch {ep:3>} val loss  : {val_loss}")
             logger.info(f"Early stop count = {early_stop_count}")
@@ -124,10 +126,10 @@ def train2():
     error_yearly_axis = np.mean(
         np.mean(np.abs(forecast[-23000:] - X_test[-23000:]), axis=1)
     )
-    print(f"MASE : {error}")
-    print(f"MASE axis : {error_axis}")
-    print(f"MASE yearly : {error_yearly}")
-    print(f"MASE axis yearly : {error_yearly_axis}")
+    logger.info(f"MASE : {error}")
+    logger.info(f"MASE axis : {error_axis}")
+    logger.info(f"MASE yearly : {error_yearly}")
+    logger.info(f"MASE axis yearly : {error_yearly_axis}")
 
     filename = os.path.join(cfg.train.model_save_path, cfg.run.name + ".pt")
     torch.save(model.state_dict(), filename)
@@ -167,7 +169,7 @@ def train2():
     X_train = np.array(ts_train)
     X_test = np.array(ts_test)
 
-    print("recursive forecasting Yearly")
+    logger.info("recursive forecasting Yearly")
 
     with torch.no_grad():
         for i in range(6):  # X_test.shape[1]
@@ -179,14 +181,14 @@ def train2():
 
     error = np.mean(np.abs(forecast - X_test))
     error_axis = np.mean(np.mean(np.abs(forecast - X_test), axis=1))
-    print(f"MASE Yearly recursive: {error}")
-    print(f"MASE Yearly axis recursive: {error_axis}")
+    logger.info(f"MASE Yearly recursive: {error}")
+    logger.info(f"MASE Yearly axis recursive: {error_axis}")
 
     X_train = np.array(ts_train)
     X_test = np.array(ts_test)
-    print(X_train.shape)
-    print(X_test.shape)
-    print("forecasting Yearly")
+    logger.info(X_train.shape)
+    logger.info(X_test.shape)
+    logger.info("forecasting Yearly")
     with torch.no_grad():
         Y_hat = []
         for i in range(6):  # X_test.shape[1]
@@ -201,9 +203,9 @@ def train2():
     forecast = np.stack(Y_hat, axis=1)
 
     error = np.mean(np.abs(forecast - X_test))
-    print(f"MASE Yearly one-step: {error}")
+    logger.info(f"MASE Yearly one-step: {error}")
     error_axis = np.mean(np.mean(np.abs(forecast - X_test), axis=1))
-    print(f"MASE Yearly_axis one-step: {error_axis}")
+    logger.info(f"MASE Yearly_axis one-step: {error_axis}")
 
 
 if __name__ == "__main__":

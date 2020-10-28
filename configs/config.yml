@@ -80,6 +80,8 @@ dataset:
     cutoff_date: 
 
 train:
+  scaler_module: GPTime.utils.scaling
+  scaler_name: MASEScaler
   train_set_size: 0.8
   val_set_size: 0.15
   test_set_size: 0.05
@@ -135,8 +137,6 @@ train:
     shuffle: True
     num_workers: 4
 
-
-
 evaluate:
   results_path: GPTime/models/
 
@@ -176,7 +176,8 @@ scoring:
     wape: False
     mape: False
   m4:
-    scale_mase: True
+
+    #scale_mase: True
     horizons:
       yearly: 6
       quarterly: 8
@@ -192,6 +193,7 @@ scoring:
       daily: 1
       hourly: 24
       other: 1
+
 tests:
   data:
     M4:
