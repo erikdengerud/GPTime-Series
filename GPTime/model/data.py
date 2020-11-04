@@ -8,12 +8,15 @@ import os
 import numpy as np
 import time
 from typing import Dict, List, Tuple
+import importlib
 import sys
 
 sys.path.append("")
 
 from GPTime.config import cfg
 from GPTime.utils.scaling import MASEscale
+
+Scaler = getattr(importlib.import_module(cfg.train.scaler_module), cfg.train.scaler_name)
 
 logger = logging.getLogger(__name__)
 
@@ -289,10 +292,12 @@ class MonteroMansoHyndmanDS(Dataset):
         if cutoff_date is not None:
             self.cutoff_date_date = time.strptime(cutoff_date, "%Y-%m-%d")
 
+        #logger.debug(dataset_paths)
         # Read data into memory
         all_ts = []
         for dataset_path in dataset_paths.values():
             dirs = glob.glob(os.path.join(dataset_path, "*"))
+            #logger.debug(dirs)
             for d in dirs:
                 logger.info(f"Loading dir: {d}")
                 fnames = glob.glob(os.path.join(d, "*"))
@@ -320,13 +325,17 @@ class MonteroMansoHyndmanDS(Dataset):
         return sample_tensor, label_tensor, 0
 
     def prepare_ts(self, ts:Dict) -> Tuple:
-        freq = ts["frequency"]
+        freq_str = ts["frequency"]
+        freq_int = cfg.dataset.scaling.periods[freq_str]
         values = np.array([float(obs["value"]) for obs in ts["observations"]])
         sample = values[-(self.memory + 1):-1]
         label = values[-1]
-        scale = MASEscale(sample, freq)
-        sample_scaled = sample / scale
-        label_scaled = label / scale
+        if Scaler.__name__ == "MASEScaler":
+            scaler = Scaler().fit(sample, freq=freq_int)
+        else:
+            scaler = Scaler().fit(sample)
+        sample_scaled = scaler.transform(sample)
+        label_scaled = scaler.transform(label)
     
         return sample_scaled, label_scaled
 

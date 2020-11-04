@@ -66,7 +66,6 @@ def train2():
     trainloader = DataLoader(ds, **cfg.train.dataloader_params)
     valloader = DataLoader(ds_val, **cfg.train.dataloader_params)
 
-    num_epochs = 100
     tenacity =5 
     early_stop_count = 0
     low_loss = np.inf

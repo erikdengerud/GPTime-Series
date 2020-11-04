@@ -7,7 +7,7 @@ import sys
 sys.path.append("")
 
 from GPTime.config import cfg
-from GPTime.utils.scoring2 import predict_M4, score_M4
+from GPTime.utils.scoring import predict_M4, score_M4
 
 logger = logging.getLogger(__name__)
 

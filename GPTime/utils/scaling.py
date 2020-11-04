@@ -42,17 +42,6 @@ class MASEScaler(TransformerMixin, BaseEstimator):
 
     def __init__(self, seasonality: bool = True):
         self.seasonality = seasonality
-        """
-        self.periods = {
-            "Y" : 1,
-            "Q" : 4,
-            "M" : 12,
-            "W" : 1,
-            "D" : 1,
-            "H" : 24,
-            "O" : 1
-            }
-        """
 
     def _reset(self):
         """Reset internal data-dependent state of the scaler, if necessary.
@@ -66,14 +55,30 @@ class MASEScaler(TransformerMixin, BaseEstimator):
         return self.partial_fit(X, freq, axis=axis)
 
     def partial_fit(self, X: np.array, freq: int, axis: int = 1) -> object:
+        #logger.debug(f"freq = {freq}")
+        #logger.debug(f"type(freq)={type(freq)}")
+
         try:
-            scale = np.nanmean(
-                np.abs(X - np.roll(X, shift=freq, axis=axis))[:, freq:], axis=axis
-            )
-            scale[scale == 0] = 1
-            scale[np.isinf(scale)] = 1
-            scale[np.isnan(scale)] = 1
-            self.scale_ = np.expand_dims(scale, axis=axis)
+            if len(X.shape) == 1:
+                if len(X) <= freq:
+                    freq = 1
+                scale = np.mean(np.abs(X-np.roll(X, shift=freq))[freq:])
+                scale = 1 if scale == 0 else scale
+                scale = 1 if np.isinf(scale) else scale
+                scale = 1 if np.isnan(scale) else scale
+                self.scale_ = scale
+            elif len(X.shape) == 2:
+                if X.shape[1] <= freq:
+                    freq = 1
+                scale = np.nanmean(
+                    np.abs(X - np.roll(X, shift=freq, axis=axis))[:, freq:], axis=axis
+                )
+                scale[scale == 0] = 1
+                scale[np.isinf(scale)] = 1
+                scale[np.isnan(scale)] = 1
+                self.scale_ = np.expand_dims(scale, axis=axis)
+            else:
+                raise Exception("Input array not of valid shape. Must be one or two-dimensional.")
         except Exception as e:
             logger.warning(e)
             self.scale_ = None
@@ -87,6 +92,9 @@ class MASEScaler(TransformerMixin, BaseEstimator):
         check_is_fitted(self)
         # logger.info(X.shape)
         # logger.info(self.scale_.shape)
+        #logger.debug(f"X.dtype : {X.dtype}")
+        #logger.debug(f"self.scale_.dtype : {self.scale_.dtype}")
+
         X = X.astype(float)
         X /= self.scale_
         return X
@@ -114,6 +122,7 @@ if __name__ == "__main__":
     )
     logger.info(len(x))
     logger.info(x)
+
     logger.info(MASEscale(x, "Q"))
     logger.info(MASEscale(x, "Y"))
     logger.info(MASEscale(x, "M"))
@@ -129,3 +138,20 @@ if __name__ == "__main__":
     logger.info(descaled)
     logger.info(Y - descaled)
     logger.info(scaler.scale_.flatten().shape)
+
+    logger.debug("Testing one dim")
+    scaler = MASEScaler()
+    scaled = scaler.fit_transform(x, 1)
+    logger.info(scaled)
+    scaler = MASEScaler()
+    scaled = scaler.fit_transform(x, 12)
+    logger.info(scaled)
+    scaler = MASEScaler()
+    scaled = scaler.fit_transform(x, 4)
+    logger.info(scaled)
+    scaler = MASEScaler()
+    scaled = scaler.fit_transform(x, 24)
+    logger.info(scaled)
+
+
+    
