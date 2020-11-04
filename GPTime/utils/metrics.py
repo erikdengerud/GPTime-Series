@@ -14,6 +14,16 @@ logger = logging.getLogger(__name__)
 
 def MASE(actual: np.array, predicted: np.array, scale: np.array) -> float:
     """ Calculating Mean Absolute Scaled Error """
+    """
+    logger.info(f"np.abs(actual - predicted).shape: {np.abs(actual - predicted).shape}")
+    logger.info(
+        f"np.nanmean(np.abs(actual - predicted), axis=1).shape: {np.nanmean(np.abs(actual - predicted), axis=1).shape}"
+    )
+    a = np.nanmean(np.abs(actual - predicted), axis=1) / scale
+    logger.info(
+        f"np.nanmean(np.abs(actual - predicted), axis=1) / scale . shape: {a.shape}"
+    )
+    """
     return np.mean(np.nanmean(np.abs(actual - predicted), axis=1) / scale)
 
 

@@ -86,7 +86,7 @@ train:
   val_set_size: 0.15
   test_set_size: 0.05
   num_tests_per_ts: 1
-  max_epochs: 1000
+  max_epochs: 20
   clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
   early_stop_tenacity: 25

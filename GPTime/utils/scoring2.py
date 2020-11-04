@@ -18,7 +18,10 @@ logger = logging.getLogger(__name__)
 from GPTime.config import cfg
 from GPTime.utils.metrics import MASE, SMAPE, OWA
 
-Scaler = getattr(importlib.import_module(cfg.train.scaler_module), cfg.train.scaler_name)
+Scaler = getattr(
+    importlib.import_module(cfg.train.scaler_module), cfg.train.scaler_name
+)
+
 
 def period_from_fname(fname: str, period_dict: Dict) -> Tuple[int, str]:
     """
@@ -34,7 +37,7 @@ def period_from_fname(fname: str, period_dict: Dict) -> Tuple[int, str]:
 def create_training_data(fname: str) -> np.array:
     """
     Reverting the training data.
-    The data is in a form where the first value is in the first column etc. and it is 
+    The data is in a form where the first value is in the first column etc. and it is
     padded at the end with nans to get the same length for all ts. This function changes
     the format s.t. the last column is the first value etc.
     """
@@ -48,20 +51,22 @@ def create_training_data(fname: str) -> np.array:
                 pad_width=(Y.shape[1] - len(ts), 0),
                 mode="constant",
                 constant_values=np.nan,
-                )
             )
+        )
     X = np.array(tmp)
     assert X.shape == Y.shape, f"diff in shapes; Y.shape:{Y.shape}, X.shape:{X.shape}"
     return X
 
 
-def multi_step_predict(model: nn.Module, train_data: np.array, horizon: int) -> np.array:
+def multi_step_predict(
+    model: nn.Module, train_data: np.array, horizon: int
+) -> np.array:
     """
     Multi step forecasting with a model on training data.
     """
     memory = getattr(model, "memory")
     with torch.no_grad():
-        for i in range(horizon): 
+        for i in range(horizon):
             sample = torch.from_numpy(train_data[:, -memory:])
             out = model(sample).cpu().detach().numpy()
             train_data = np.hstack((train_data, out))
@@ -79,10 +84,14 @@ def predict_M4(model: nn.Module) -> np.array:
     assert len(all_train_files) > 0, f"Did not find data in {cfg.path.m4_train}"
     frames = []
     for fname in all_train_files:
-        period_numeric, period_str = period_from_fname(fname=fname, period_dict=cfg.scoring.m4.periods)
+        period_numeric, period_str = period_from_fname(
+            fname=fname, period_dict=cfg.scoring.m4.periods
+        )
         X = create_training_data(fname=fname)
         scaler = Scaler().fit(X, freq=period_numeric)
         X = scaler.transform(X)
+        # check if this is the same as train2 version ^^
+        # check if vv is similar predictions for set input.
         predictions = multi_step_predict(
             model=model,
             train_data=X,
@@ -97,8 +106,8 @@ def predict_M4(model: nn.Module) -> np.array:
     df_all = pd.concat(frames)
     predictions = df_all.values
     logger.info(f"predictions shape: {predictions.shape}")
-    logger.info(df_all.tail())
-    logger.info(df_all.iloc[0])
+    # logger.info(df_all.tail())
+    # logger.info(df_all.iloc[0])
     return df_all.values
 
 
@@ -109,7 +118,9 @@ def score_M4(
     frequency_metrics: Dict[str, Dict[str, float]] = {}
     # Read in and prepare the data
     all_test_files = glob.glob(cfg.path.m4_test + "*")
-    all_train_files = glob.glob(cfg.path.m4_test + "*")
+    all_train_files = glob.glob(cfg.path.m4_train + "*")
+    all_test_files.sort()
+    all_train_files.sort()
     crt_pred_index = 0
     tot_mase = 0.0
     tot_smape = 0.0
@@ -121,15 +132,9 @@ def score_M4(
             fname=fname_train, period_dict=cfg.scoring.m4.periods
         )
         horizon = cfg.scoring.m4.horizons[period_str]
-        scale = (
-            df_train.diff(periods=period_num, axis=1)
-            .abs()
-            .mean(axis=1)
-            .reset_index(drop=True)
-        ).values
-        scale = Scaler().fit_(df_train.values, freq=perios_num).scale_
-        #logger.info(f"scale shape = {scale.shape}")
 
+        scale = Scaler().fit(df_train.values, freq=period_num).scale_.flatten()
+        # logger.info(f"scale.shape: {scale.shape}")
         Y = df_test.values[:, :horizon]
         index = crt_pred_index + Y.shape[0]
         predicted = predictions[crt_pred_index:index, :horizon]
