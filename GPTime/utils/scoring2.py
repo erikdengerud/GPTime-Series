@@ -81,6 +81,7 @@ def predict_M4(model: nn.Module) -> np.array:
     model.eval()
 
     all_train_files = glob.glob(cfg.path.m4_train + "*")
+    all_train_files.sort()
     assert len(all_train_files) > 0, f"Did not find data in {cfg.path.m4_train}"
     frames = []
     for fname in all_train_files:
@@ -90,24 +91,20 @@ def predict_M4(model: nn.Module) -> np.array:
         X = create_training_data(fname=fname)
         scaler = Scaler().fit(X, freq=period_numeric)
         X = scaler.transform(X)
-        # check if this is the same as train2 version ^^
-        # check if vv is similar predictions for set input.
+
         predictions = multi_step_predict(
             model=model,
             train_data=X,
             horizon=cfg.scoring.m4.horizons[period_str],
         )
+
         predictions = scaler.inverse_transform(predictions)
-
         df = pd.DataFrame(predictions)
-        logger.debug(df.shape)
         frames.append(df)
-
+        
     df_all = pd.concat(frames)
     predictions = df_all.values
-    logger.info(f"predictions shape: {predictions.shape}")
-    # logger.info(df_all.tail())
-    # logger.info(df_all.iloc[0])
+    #logger.info(f"predictions shape: {predictions.shape}")
     return df_all.values
 
 
@@ -125,6 +122,7 @@ def score_M4(
     tot_mase = 0.0
     tot_smape = 0.0
     for fname_train, fname_test in zip(all_train_files, all_test_files):
+
         df_train = pd.read_csv(fname_train, index_col=0)
         df_test = pd.read_csv(fname_test, index_col=0)
 
@@ -133,15 +131,15 @@ def score_M4(
         )
         horizon = cfg.scoring.m4.horizons[period_str]
 
-        scale = Scaler().fit(df_train.values, freq=period_num).scale_.flatten()
-        # logger.info(f"scale.shape: {scale.shape}")
         Y = df_test.values[:, :horizon]
         index = crt_pred_index + Y.shape[0]
         predicted = predictions[crt_pred_index:index, :horizon]
 
         assert np.sum(np.isnan(Y)) == 0, "NaNs in Y"
-        assert np.sum(np.isnan(predicted)) == 0, "NaNs in predictions"
+        assert np.sum(np.isnan(predicted)) == 0, f"NaNs in predictions: {np.where(np.isnan(predicted))}"
         assert Y.shape == predicted.shape, "Y and predicted have different shapes"
+
+        scale = Scaler().fit(df_train.values, freq=period_num).scale_.flatten()
 
         mase_freq = MASE(Y, predicted, scale)
         smape_freq = SMAPE(Y, predicted)
@@ -190,12 +188,138 @@ if __name__ == "__main__":
             out = self.out(x)
             return out
 
-    mlp = MLP(in_features=10, out_features=1, n_hidden=16).double()
+    mlp = MLP(in_features=12, out_features=1, n_hidden=16).double()
+    """
+    # Testing yearly data recursive
+    df_yearly_train = pd.read_csv(
+        "GPTime/data/raw/M4/M4train/Yearly-train.csv", index_col=0
+    )
+    df_yearly_test = pd.read_csv(
+        "GPTime/data/raw/M4/M4test/Yearly-test.csv", index_col=0
+    )
+    scale = (
+        df_yearly_train.diff(periods=1, axis=1)
+        .abs()
+        .mean(axis=1)
+        .reset_index(drop=True)
+    )
+
+    X_train_yearly = df_yearly_train.div(scale.values, axis=0).to_numpy()
+    X_test_yearly = df_yearly_test.div(scale.values, axis=0).to_numpy()
+
+    ts_train = []
+    ts_test = []
+    for i in range(X_train_yearly.shape[0]):
+        s_train = X_train_yearly[i][~np.isnan(X_train_yearly[i])]
+        s_test = X_test_yearly[i][~np.isnan(X_test_yearly[i])]
+        ts_train.append(s_train[-12:])  # shortest in the train set
+        ts_test.append(s_test[:6])  # shortest in the test set
+
+    df_train_out = pd.DataFrame(ts_train)
+    df_test_out = pd.DataFrame(ts_test)
+
+    X_train = np.array(ts_train)
+    X_test = np.array(ts_test)
+    X_test_df = pd.DataFrame(X_test)
+    X_test_descaled = X_test_df.mul(scale.values, axis=0).to_numpy()
+
+    logger.info("recursive forecasting Yearly")
+    #logger.debug(f"X_train_yearly[0]: {X_train[0]}")
+
+    with torch.no_grad():
+        for i in range(6):  # X_test.shape[1]
+            sample = torch.from_numpy(X_train[:, -12:])
+            out = mlp(sample).cpu().detach().numpy()
+            X_train = np.hstack((X_train, out))
+
+
+    forecast = X_train[:, -6:]
+    forecast_df = pd.DataFrame(forecast)
+    descaled_forecast = forecast_df.mul(scale.values, axis=0).to_numpy()
+    #logger.debug(f"forecast[0]: {forecast[0]}")
+    #logger.debug(f"descaled_forecast[0]: {descaled_forecast[0]}")
+
+    error = np.mean(np.abs(forecast - X_test))
+    error_axis = np.mean(np.mean(np.abs(forecast - X_test), axis=1))
+    logger.info(f"MASE Yearly recursive: {error}")
+    logger.info(f"MASE Yearly axis recursive: {error_axis}")
+    
+    # Testing yearly data recursive
+    df_yearly_train = pd.read_csv(Yearly
+        "GPTime/data/raw/M4/M4test/Hourly-test.csv", index_col=0
+    )
+    scale = (
+        df_yearly_train.diff(periods=24, axis=1)
+        .abs()
+        .mean(axis=1)
+        .reset_index(drop=True)
+    )
+
+    X_train_yearly = df_yearly_train.div(scale.values, axis=0).to_numpy()
+    X_test_yearly = df_yearly_test.div(scale.values, axis=0).to_numpy()
+
+    ts_train = []
+    ts_test = []
+    for i in range(X_train_yearly.shape[0]):
+        s_train = X_train_yearly[i][~np.isnan(X_train_yearly[i])]
+        s_test = X_test_yearly[i][~np.isnan(X_test_yearly[i])]
+        ts_train.append(s_train[-12:])  # shortest in the train set
+        ts_test.append(s_test[:48])  # shortest in the test set
+
+    df_train_out = pd.DataFrame(ts_train)
+    df_test_out = pd.DataFrame(ts_test)
+
+    X_train = np.array(ts_train)
+    X_test = np.array(ts_test)
+    X_test_df = pd.DataFrame(X_test)
+    X_test_descaled = X_test_df.mul(scale.values, axis=0).to_numpy()
+
+    logger.info("recursive forecasting Yearly")
+    #logger.debug(f"X_train_yearly[0]: {X_train[0]}")
+
+    with torch.no_grad():
+        for i in range(48):  # X_test.shape[1]
+            sample = torch.from_numpy(X_train[:, -12:])
+            out = mlp(sample).cpu().detach().numpy()
+            X_train = np.hstack((X_train, out))
+
+
+    forecast = X_train[:, -48:]
+    forecast_df = pd.DataFrame(forecast)
+    descaled_forecast = forecast_df.mul(scale.values, axis=0).to_numpy()
+    #logger.debug(f"forecast[0]: {forecast[0]}")
+    #logger.debug(f"descaled_forecast[0]: {descaled_forecast[0]}")
+
+    error = np.mean(np.abs(forecast - X_test))
+    error_axis = np.mean(np.mean(np.abs(forecast - X_test), axis=1))
+    logger.info(f"MASE Hourly recursive: {error}")
+    logger.info(f"MASE Hourly axis recursive: {error_axis}")
+    #mase
+    """
     # predict
     preds = predict_M4(model=mlp)
+    """
+    logger.debug(f"descaled_forecast.shape = {descaled_forecast.shape}")
+    logger.debug(f"yearly_preds.shape = {yearly_preds.shape}")
+    logger.debug(f"np.sum(descaled_forecast - yearly_preds) = {np.sum(descaled_forecast - yearly_preds)}")
+    """
     logger.info(len(preds))
     d = score_M4(preds)
     print(d)
     df = pd.DataFrame(d).T
     logger.debug(df.head(10))
     logger.debug(df.shape)
+    """
+    logger.debug(f"X_test.shape = {X_test.shape}")
+    logger.debug(f"X_test_yearly_scoring.shape = {X_test_yearly_scoring.shape}")
+    logger.debug(f"np.sum(X_test_descaled - X_test_yearly_scoring) = {np.sum(X_test_descaled - X_test_yearly_scoring)}")
+
+    logger.debug(f"scale_yearly.shape = {scale_yearly.shape}")
+    logger.debug(f"scale.shape = {scale.shape}")
+    logger.debug(f"np.sum(scale_yearly - scale) = {np.sum(scale_yearly - scale)}")
+
+    logger.debug(f"df_yearly_test.head() : {df_yearly_test.head()}")
+    logger.debug(f"df_test_yearly.head() : {df_test_yearly.head()}")
+
+    logger.debug(f"np.sum(df_yearly_test.values - df_test_yearly.values) = {np.sum(df_yearly_test.values - df_test_yearly.values)}")
+    """

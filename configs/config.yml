@@ -7,7 +7,7 @@ run:
 
 path:
   m4_train: "GPTime/data/raw/M4/M4train/"
-  m4_test: "GPTime/data/raw/M4/M4train/"
+  m4_test: "GPTime/data/raw/M4/M4test/"
   logs: "logs"
   log_config: "configs/logging.yml"
 
