@@ -93,12 +93,12 @@ train:
   scaler_module: GPTime.utils.scaling
   scaler_name: MASEScaler
   train_set_size: 0.8
-  val_set_size: 0.19
-  test_set_size: 0.01
+  val_set_size: 0.2
+  test_set_size: 0
   num_tests_per_ts: 1
   max_epochs: 1000
-  early_stop_tenacity: 50
-  log_freq: 10
+  early_stop_tenacity: 30
+  log_freq: 5
   clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
   model_save_path: GPTime/models/

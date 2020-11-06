@@ -328,14 +328,18 @@ class MonteroMansoHyndmanDS(Dataset):
         freq_str = ts["frequency"]
         freq_int = cfg.dataset.scaling.periods[freq_str]
         values = np.array([float(obs["value"]) for obs in ts["observations"]])
-        sample = values[-(self.memory + 1):-1]
-        label = values[-1]
+        #sample = values[-(self.memory + 1):-1]
+        #label = values[-1]
         if Scaler.__name__ == "MASEScaler":
-            scaler = Scaler().fit(sample, freq=freq_int)
+            #scaler = Scaler().fit(sample, freq=freq_int)
+            values_scaled = Scaler().fit_transform(values, freq=freq_int)
         else:
             scaler = Scaler().fit(sample)
-        sample_scaled = scaler.transform(sample)
-        label_scaled = scaler.transform(label)
+
+        sample_scaled = values_scaled[-(self.memory + 1):-1]
+        label_scaled = values_scaled[-1]
+        #sample_scaled = scaler.transform(sample)
+        #label_scaled = scaler.transform(label)
     
         return sample_scaled, label_scaled
 

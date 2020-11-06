@@ -36,8 +36,8 @@ DataLoader = getattr(
 
 
 def train3():
-    np.random.seed(1729)
-    torch.manual_seed(1729)
+    #np.random.seed(1729)
+    #torch.manual_seed(1729)
     if Model.__name__ == "MLP":
         model_params = cfg.train.model_params_mlp
     elif Model.__name__ == "AR":
@@ -89,7 +89,7 @@ def train3():
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
-        running_loss /= len(train_ds)
+        #running_loss /= len(train_ds)
 
         model.eval()
         running_val_loss = 0.0
@@ -107,7 +107,7 @@ def train3():
             if early_stop_count > cfg.train.early_stop_tenacity:
                 print(f"Early stop after epoch {ep}.")
                 break
-        running_val_loss /= len(val_ds)
+        #running_val_loss /= len(val_ds)
 
         running_test_loss = 0.0
         with torch.no_grad():
@@ -118,7 +118,7 @@ def train3():
                 assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
                 loss = criterion(outputs, labels)
                 running_test_loss += loss.item()
-        running_test_loss /= len(test_ds)
+        #running_test_loss /= len(test_ds)
         #writer.add_scalar("Loss/test", running_test_loss , epoch)
 
         if ep % cfg.train.log_freq == 0:
