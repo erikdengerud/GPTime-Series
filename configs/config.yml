@@ -47,25 +47,25 @@ preprocess:
 
 dataset:
   dataset_module: "GPTime.model.data"
-  #dataset_name: "TSDataset"
+  dataset_name: "TSDataset"
   #dataset_name: DummyDataset
   #dataset_name: MonteroMansoHyndmanSimpleDS
-  dataset_name: MonteroMansoHyndmanDS
+  #dataset_name: MonteroMansoHyndmanDS
   dataset_params:
     dataset_paths:
       #FRED: /work/erikde/data/processed/FRED
-      #FRED_small: /work/erikde/data/processed/FRED_small
-      M4: /work/erikde/data/processed/M4/
+      FRED_small: /work/erikde/data/processed/FRED_small
+      #M4: /work/erikde/data/processed/M4/
       #M4_global: M4_GLOBAL_train.npy
       #M4_global_test: M4_GLOBAL_test.npy
     frequencies:
       Y: True
-      Q: True
-      M: True
-      W: True
-      D: True
-      H: True
-      O: True
+      Q: False
+      M: False
+      W: False
+      D: False
+      H: False
+      O: False
     min_lengths:
       Y: 11
       Q: 11
@@ -90,8 +90,10 @@ dataset:
       O: 1
 
 train:
-  scaler_module: GPTime.utils.scaling
-  scaler_name: MASEScaler
+  #scaler_module: GPTime.utils.scaling
+  #scaler_name: MASEScaler
+  scaler_module: sklearn.preprocessing
+  scaler_name: RobustScaler
   train_set_size: 0.8
   val_set_size: 0.2
   test_set_size: 0

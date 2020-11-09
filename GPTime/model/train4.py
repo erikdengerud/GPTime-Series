@@ -35,7 +35,7 @@ DataLoader = getattr(
 )
 
 
-def train3():
+def train4():
     #np.random.seed(1729)
     #torch.manual_seed(1729)
     if Model.__name__ == "MLP":
@@ -82,7 +82,7 @@ def train3():
         model.train()
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
-            inputs, labels = data[0], data[1]
+            inputs, labels, mask = data[0], data[1], data[2]
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs.flatten(), labels)
@@ -95,7 +95,7 @@ def train3():
         running_val_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(valloader, 0):
-                inputs, labels = data[0], data[1]
+                inputs, labels, mask = data[0], data[1], data[2]
                 outputs = model(inputs)
                 loss = criterion(outputs.flatten(), labels)
                 running_val_loss += loss.item()
@@ -112,7 +112,7 @@ def train3():
         running_test_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(testloader):
-                inputs, labels, freq = data
+                inputs, labels, mask = data[0], data[1], data[2]
                 outputs = model(inputs)
                 labels = labels.unsqueeze(1)
                 assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
@@ -138,4 +138,4 @@ def train3():
 
 
 if __name__ == "__main__":
-    train3()
+    train4()

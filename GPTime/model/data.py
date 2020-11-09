@@ -69,51 +69,67 @@ class TSDataset(Dataset):
         frequency = id_ts["frequency"]
         values = id_ts["values"]
 
-        # Sample ts
-        sample, label = self.sample_ts(values, frequency)
+        sample, label, mask = self.sample_ts(values, frequency)
 
         sample_tensor = torch.from_numpy(sample)
         label_tensor = torch.from_numpy(label)
+        mask_tensor = torch.from_numpy(mask)
 
         if self.convolutions:
             sample_tensor = sample_tensor.unsqueeze(0)
+            mask_tensor = mask_tensor.unsqueeze(0)
 
-        return sample_tensor, label_tensor, frequency
+        return sample_tensor, label_tensor, mask_tensor, frequency
 
-
-    def sample_ts(self, ts:np.array, freq:str) -> Tuple[np.array, np.array]:
-        """
-        Create a sample from a time series.
+    def sample_ts(self, ts:np.array, freq:str) -> Tuple[np.array, np.array, np.array]:
+        """Sampling a training sample a time series.
 
         Sampling algorithm:
-            1. Sample length in range min_length to length of model memory. Frequency dependent.
-            2. Sample end index in range 0 length of series.
-            3. Create the sample by choosing the observations in range [max(0, end_index - length), end_index]
+            1. Sample sample_length in range min_length to length of model memory. Frequency dependent.
+            2. Sample end index in range sample_length to length of time series.
+            3. Create the sample by choosing the observations in range [(end_index - sample_length), end_index]
             4. Use the end_index entry of the time series as label.
-            5. Scale the sample using the scaling in MASE.
-            6. Scale label using the same scale as for the sample.
+
+        Args:
+            ts (np.array): A time series in the form of an array.
+            freq (str): The frequency of the time series. One capitalized letter.
+
+        Returns:
+            Tuple[np.array, np.array, np.arrray]: The sample, label and mask.
         """
         min_length = self.min_lengths[freq]
-        max_length = self.memory
+        #max_length = min(self.memory, len(ts))
+        max_length = min(self.memory, len(ts)) + 1
+        assert min_length < max_length, f"min_length ({min_length}) longer than max_length ({max_length})"
 
-        length = np.random.randint(min_length, max_length)
-        end_index = np.random.randint(min_length, len(ts))
+        length = np.random.randint(min_length, max_length) - 1
+        assert length < len(ts), f"length ({length}) longer than len(ts) ({len(ts)})"
+        end_index = np.random.randint(length, len(ts))
 
-        sample = ts[max(0, end_index - length) : end_index]
+        sample = ts[(end_index - length) : end_index]
         label = np.array(ts[end_index])
 
-        scale = MASEscale(sample, freq)
-        sample_scaled = sample / scale
-        label_scaled = label / scale
-        
-        sample_scaled_pad = np.pad(sample_scaled, (self.memory-len(sample_scaled), 0), mode="constant", constant_values=0)
-        assert len(sample_scaled_pad) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample_scaled_pad)}, memory:{self.memory}"
+        sample_mask = np.zeros(self.memory)
+        sample_mask[-len(sample):] = 1.0
 
-        return np.asarray(sample_scaled_pad), np.asarray(label_scaled)
+        sample = np.pad(sample, (self.memory - len(sample), 0), mode="constant", constant_values=0)
+
+        assert len(sample) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample)}, memory:{self.memory}"
+        assert len(sample_mask) == self.memory, f"Mask is not as long as memory. Length mask: {len(sample_mask)}, memory:{self.memory}"
+    
+        return sample, label, sample_mask
 
     def prepare_ts(self, ts:Dict) -> Dict:
-        """ 
-        Prepare ts. Use only values before cutoff date. Store values as numpy array.
+        """Prepare a preprocessed time series for training. 
+        Use only values before a cutoff date. 
+        Storing observations as floats in a numpy array. 
+        Scaling the time series using the full time series. Required to stabilize training with some Scalers. The best would be to scale each sample by itself.
+
+        Args:
+            ts (Dict): A time series with observations and metadata. Needs frequency and observations.
+
+        Returns:
+            Dict: The same time series with values from before the cutoff date as floats in a numpy array and the frequency as a string.
         """
         if self.cutoff_date is not None:
             vals = []
@@ -123,13 +139,24 @@ class TSDataset(Dataset):
             vals = np.array(vals)
         else:
             vals = np.array([float(obs["value"]) for obs in ts["observations"]])
-        if len(vals) < self.min_lengths[ts["frequency"]]:
-            vals = np.array([])
-        new_ts = {
+        
+        freq_str = ts["frequency"]
+        freq_int = cfg.dataset.scaling.periods[freq_str]
+        if Scaler.__name__ == "MASEScaler":
+            values_scaled = Scaler().fit_transform(vals, freq=freq_int)
+        else:
+            values_scaled = Scaler().fit_transform(vals.reshape(1,-1)).flatten()
+
+        if len(values_scaled) < self.min_lengths[ts["frequency"]]:
+            values_scaled = np.array([])
+
+        prepared_ts = {
             "frequency": ts["frequency"],
-            "values" : np.array([float(obs["value"]) for obs in ts["observations"]])
+            "values" : values_scaled
         }
-        return new_ts
+
+        return prepared_ts
+        
 
 class DeterministicTSDataSet(Dataset):
     """
@@ -334,7 +361,7 @@ class MonteroMansoHyndmanDS(Dataset):
             #scaler = Scaler().fit(sample, freq=freq_int)
             values_scaled = Scaler().fit_transform(values, freq=freq_int)
         else:
-            scaler = Scaler().fit(sample)
+            scaler = Scaler().fit(values)
 
         sample_scaled = values_scaled[-(self.memory + 1):-1]
         label_scaled = values_scaled[-1]
@@ -372,6 +399,27 @@ class MonteroMansoHyndmanSimpleDS(Dataset):
 
 
 if __name__=="__main__":
+    ds = TSDataset(
+        memory=100,
+        convolutions=False,
+        **cfg.dataset.dataset_params)
+    logger.debug(ds.__len__())
+
+    from torch.utils.data import DataLoader
+    dl = DataLoader(dataset=ds, batch_size=1, shuffle=True, num_workers=4)
+    for i, data in enumerate(dl):
+        sample, label, mask = data[0], data[1], data[2]
+        logger.info(f"Batch {i+1}")
+        logger.debug(sample.shape)
+        logger.debug(label.shape)
+        logger.debug(mask.shape)
+        logger.debug(sample)
+        logger.debug(label.item())
+        logger.debug(mask)
+
+        break
+
+    """
     ds = MonteroMansoHyndmanSimpleDS(
         memory=12,
         convolutions=False,
@@ -388,6 +436,7 @@ if __name__=="__main__":
         #output = model(x)
         #logger.info(output.shape)
         break
+    """
     """
     ds = DummyDataset(
         memory=100,
