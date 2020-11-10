@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 from GPTime.config import cfg
 from GPTime.utils.metrics import MASE, SMAPE, OWA
+from GPTime.utils.scaling import MASEScaler
 
 Scaler = getattr(
     importlib.import_module(cfg.train.scaler_module), cfg.train.scaler_name
@@ -89,8 +90,14 @@ def predict_M4(model: nn.Module) -> np.array:
             fname=fname, period_dict=cfg.scoring.m4.periods
         )
         X = create_training_data(fname=fname)
-        scaler = Scaler().fit(X, freq=period_numeric)
-        X = scaler.transform(X)
+        #scaler = Scaler().fit(X, freq=period_numeric)
+        #X = scaler.transform(X)
+        if Scaler.__name__ == "MASEScaler":
+            scaler = Scaler()
+            X = scaler.fit_transform(X, freq=period_numeric)
+        else:
+            scaler = Scaler()
+            X = scaler.fit_transform(X)
 
         predictions = multi_step_predict(
             model=model,
@@ -139,7 +146,8 @@ def score_M4(
         assert np.sum(np.isnan(predicted)) == 0, f"NaNs in predictions: {np.where(np.isnan(predicted))}"
         assert Y.shape == predicted.shape, "Y and predicted have different shapes"
 
-        scale = Scaler().fit(df_train.values, freq=period_num).scale_.flatten()
+        #scale = Scaler().fit(df_train.values, freq=period_num).scale_.flatten()
+        scale = MASEScaler().fit(df_train.values, freq=period_num).scale_.flatten()
 
         mase_freq = MASE(Y, predicted, scale)
         smape_freq = SMAPE(Y, predicted)
