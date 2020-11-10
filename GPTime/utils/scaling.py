@@ -107,6 +107,47 @@ class MASEScaler(TransformerMixin, BaseEstimator):
         X *= self.scale_
         return X
 
+class NoScaler(TransformerMixin, BaseEstimator):
+    """Scaler that does no scaling.
+
+    """
+    def __init__(self, copy=True):
+        super(NoScaler, self).__init__()
+
+    def fit(self, X: np.array) -> object:
+        """Fits the scaler to the dataset by doing nothing.
+
+        Args:
+            X (np.array): Data matrix, (num_samples, num_observations)
+
+        Returns:
+            object: self
+        """
+        return self
+
+    def transform(self, X: np.array, **kwargs) -> np.array:
+        """Transforming a data matrix.
+
+        Args:
+            X (np.array): Data matrix, (num_samples, num_observations)
+
+        Returns:
+            np.array: Transformed data
+        """
+        return X
+
+    def inverse_transform(self, X: np.array) -> np.array:
+        """Transform back to the original scale.
+
+        Args:
+            X (np.array): Data matrix, (num_samples, num_observations)
+
+        Returns:
+            np.array: Inverse transformed data
+        """
+        return X
+
+
 
 if __name__ == "__main__":
     x = np.arange(20, step=2)
@@ -122,7 +163,11 @@ if __name__ == "__main__":
     )
     logger.info(len(x))
     logger.info(x)
-
+    scaler = NoScaler()
+    scaler.fit(Y)
+    logger.info(scaler.fit_transform(Y))
+    logger.info(scaler.inverse_transform(Y))
+    """
     logger.info(MASEscale(x, "Q"))
     logger.info(MASEscale(x, "Y"))
     logger.info(MASEscale(x, "M"))
@@ -153,5 +198,5 @@ if __name__ == "__main__":
     scaled = scaler.fit_transform(x, 24)
     logger.info(scaled)
 
-
+    """
     
