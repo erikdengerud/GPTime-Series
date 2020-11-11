@@ -32,8 +32,8 @@ def train2():
     X_train = np.load(cfg.dataset.dataset_params.dataset_paths.M4_global)
     X_test = np.load(cfg.dataset.dataset_params.dataset_paths.M4_global_test)
 
-    train = X_train[: int(X_train.shape[0] * 0.8), :]
-    val = X_train[int(X_train.shape[0] * 0.8) :, :]
+    train = X_train[: int(X_train.shape[0] * 0.5), :]
+    val = X_train[int(X_train.shape[0] * 0.5) :, :]
 
     if Model.__name__ == "MLP":
         model_params = cfg.train.model_params_mlp

@@ -14,7 +14,7 @@ import sys
 sys.path.append("")
 
 from GPTime.config import cfg
-from GPTime.utils.scaling import MASEscale
+from GPTime.utils.scaling import MASEScaler
 
 Scaler = getattr(importlib.import_module(cfg.train.scaler_module), cfg.train.scaler_name)
 
@@ -145,7 +145,7 @@ class TSDataset(Dataset):
         if Scaler.__name__ == "MASEScaler":
             values_scaled = Scaler().fit_transform(vals, freq=freq_int)
         else:
-            values_scaled = Scaler().fit_transform(vals.reshape(1,-1)).flatten()
+            values_scaled = Scaler().fit_transform(vals.reshape(1,-1).T).flatten().T
 
         if len(values_scaled) < self.min_lengths[ts["frequency"]]:
             values_scaled = np.array([])
@@ -397,9 +397,35 @@ class MonteroMansoHyndmanSimpleDS(Dataset):
     def __getitem__(self, idx):
         return self.X[idx, :-1], self.X[idx, -1], 0
 
+class FREDSimpleDS(Dataset):
+    """
+    Dataset on the form of Monetero-Manso and Hyndman. Last 12:1 observations of each ts
+    from M4 as samples. Last obs as label. Scaled by MASE.
+    """
+    def __init__(
+        self, 
+        memory:int, 
+        dataset_paths:Dict[str, str], 
+        frequencies:Dict[str, bool],
+        min_lengths:Dict[str, int],
+        cutoff_date:str=None,  
+        convolutions:bool=False,
+        ) -> None:
+        super(FREDSimpleDS, self).__init__()
+        logger.info("Simple FRED dataset.")
+        arr = np.load("FRED_small.npy")
+
+        self.X = torch.from_numpy(arr)
+        
+    def __len__(self):
+        return self.X.shape[0]
+
+    def __getitem__(self, idx):
+        return self.X[idx, :-1], self.X[idx, -1], 0, 0
+
 
 if __name__=="__main__":
-    ds = TSDataset(
+    ds = FREDSimpleDS(
         memory=100,
         convolutions=False,
         **cfg.dataset.dataset_params)
@@ -408,7 +434,7 @@ if __name__=="__main__":
     from torch.utils.data import DataLoader
     dl = DataLoader(dataset=ds, batch_size=1, shuffle=True, num_workers=4)
     for i, data in enumerate(dl):
-        sample, label, mask = data[0], data[1], data[2]
+        sample, label, mask = data[0].numpy(), data[1].numpy(), data[2].numpy()
         logger.info(f"Batch {i+1}")
         logger.debug(sample.shape)
         logger.debug(label.shape)
@@ -416,6 +442,8 @@ if __name__=="__main__":
         logger.debug(sample)
         logger.debug(label.item())
         logger.debug(mask)
+        logger.debug(np.sum(sample))
+
 
         break
 

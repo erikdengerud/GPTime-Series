@@ -43,6 +43,7 @@ def create_training_data(fname: str) -> np.array:
     the format s.t. the last column is the first value etc.
     """
     Y = pd.read_csv(fname, index_col=0).to_numpy()
+    #logger.debug(Y.shape)
     tmp = []
     for i in range(Y.shape[0]):
         ts = Y[i][~np.isnan(Y[i])]
@@ -89,23 +90,27 @@ def predict_M4(model: nn.Module) -> np.array:
         period_numeric, period_str = period_from_fname(
             fname=fname, period_dict=cfg.scoring.m4.periods
         )
+        #   logger.debug(fname)
         X = create_training_data(fname=fname)
         #scaler = Scaler().fit(X, freq=period_numeric)
         #X = scaler.transform(X)
+        #logger.debug(X.shape)
         if Scaler.__name__ == "MASEScaler":
             scaler = Scaler()
             X = scaler.fit_transform(X, freq=period_numeric)
         else:
             scaler = Scaler()
-            X = scaler.fit_transform(X)
-
+            X = scaler.fit_transform(X.T).T
+        #logger.debug(X.shape)
         predictions = multi_step_predict(
             model=model,
             train_data=X,
             horizon=cfg.scoring.m4.horizons[period_str],
         )
-
-        predictions = scaler.inverse_transform(predictions)
+        if Scaler.__name__ == "MASEScaler":
+            predictions = scaler.inverse_transform(predictions)
+        else:
+            predictions = scaler.inverse_transform(predictions.T).T
         df = pd.DataFrame(predictions)
         frames.append(df)
         
