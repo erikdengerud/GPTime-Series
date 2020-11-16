@@ -86,7 +86,7 @@ def train():
         for i, data in enumerate(trainloader, 0):
             inputs, labels, mask = data[0], data[1], data[2]
             optimizer.zero_grad()
-            outputs = model(inputs)
+            outputs = model(inputs, mask)
             #loss = criterion(outputs.flatten(), labels)
             loss = criterion(outputs, labels)
             loss.backward()
@@ -103,7 +103,7 @@ def train():
         with torch.no_grad():
             for i, data in enumerate(valloader, 0):
                 inputs, labels, mask = data[0], data[1], data[2]
-                outputs = model(inputs)
+                outputs = model(inputs, mask)
                 #loss = criterion(outputs.flatten(), labels)
                 loss = criterion(outputs, labels)
                 running_val_loss += loss.item()
@@ -121,7 +121,7 @@ def train():
         with torch.no_grad():
             for i, data in enumerate(testloader):
                 inputs, labels, mask = data[0], data[1], data[2]
-                outputs = model(inputs)
+                outputs = model(inputs, mask)
                 #labels = labels.unsqueeze(1)
                 assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
                 loss = criterion(outputs, labels)

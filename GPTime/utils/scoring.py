@@ -82,7 +82,7 @@ def multi_step_predict(
         for i in range(horizon):
             sample = torch.from_numpy(train_data[:, -memory:])
             sample_mask = torch.from_numpy(mask[:,-memory:])
-            out = model(sample).cpu().detach().numpy()
+            out = model(sample, sample_mask).cpu().detach().numpy()
             train_data = np.hstack((train_data, out))
             mask = np.hstack((mask, np.ones((mask.shape[0], 1))))
     forecast = train_data[:, -horizon:]
