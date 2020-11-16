@@ -36,7 +36,7 @@ DataLoader = getattr(
 )
 
 
-def train4():
+def train():
     #np.random.seed(1729)
     #torch.manual_seed(1729)
     if Model.__name__ == "MLP":
@@ -92,6 +92,10 @@ def train4():
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
+
+            #loss_np = loss.detach().numpy()
+            #inputs_np = inputs.detach().numpy()
+            #logger.debug(inputs_np[np.argmax(loss_np)])
         #running_loss /= len(train_ds)
 
         model.eval()
@@ -139,4 +143,4 @@ def train4():
 
 
 if __name__ == "__main__":
-    train4()
+    train()

@@ -103,13 +103,14 @@ class TSDataset(Dataset):
         max_length = min(self.memory, len(ts)) + 1
         assert min_length < max_length, f"min_length ({min_length}) longer than max_length ({max_length})"
 
+    
         length = np.random.randint(min_length, max_length) - 1
         assert length < len(ts), f"length ({length}) longer than len(ts) ({len(ts)})"
         end_index = np.random.randint(length, len(ts))
 
         sample = ts[(end_index - length) : end_index]
         label = np.array(ts[end_index])
-        
+
         """
         freq_int = cfg.dataset.scaling.periods[freq]
         scaler = Scaler()
@@ -150,14 +151,18 @@ class TSDataset(Dataset):
         else:
             vals = np.array([float(obs["value"]) for obs in ts["observations"]])
 
-        
+        #"""
         freq_int = cfg.dataset.scaling.periods[ts["frequency"]]
         scaler = Scaler()
         if Scaler.__name__ == "MASEScaler":
             vals = scaler.fit_transform(vals, freq=freq_int)
         else:
             vals = scaler.fit_transform(vals.reshape(1,-1).T).flatten()
-        
+        #"""
+        #if np.count_nonzero(vals) < 0.5 * len(vals):
+        #    vals = np.array([])
+        #elif len(vals[vals==np.mean(vals)]) == len(vals):
+        #    vals = np.array([])
         if len(vals) < self.min_lengths[ts["frequency"]]:
             vals = np.array([])
 

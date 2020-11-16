@@ -68,17 +68,20 @@ dataset:
       H: True
       O: True
     min_lengths:
-      Y: 11
-      Q: 11
-      M: 11
-      #M: 12
-      W: 11
-      #W: 12
-      D: 11
-      #D: 12
-      H: 11
-      #H: 12
-      O: 11
+      #Y: 11
+      #Q: 11
+      #M: 11
+      #W: 11
+      #D: 11
+      #H: 11
+      #O: 11
+      Y: 9
+      Q: 12
+      M: 27
+      W: 130
+      D: 140
+      H: 480
+      O: 20 
     cutoff_date:
   scaling:
     periods:

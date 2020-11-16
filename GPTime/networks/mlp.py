@@ -31,8 +31,10 @@ class MLP(nn.Module):
     def init_weights(self):
         for i in range(self.N - 1):
             nn.init.normal_(self.layers[i].weight, std=1e-3)
+            #nn.init.xavier_normal_(self.layers[i].weight)
             if self.bias:
                 nn.init.normal_(self.layers[i].bias, std=1e-6)
         nn.init.normal_(self.out.weight, std=1e-3)
+        #nn.init.xavier_normal_(self.layers[i].weight)
         if self.bias:
             nn.init.normal_(self.out.bias, std=1e-6)
