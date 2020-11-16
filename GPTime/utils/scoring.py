@@ -67,11 +67,24 @@ def multi_step_predict(
     Multi step forecasting with a model on training data.
     """
     memory = getattr(model, "memory")
+    mask = np.zeros((train_data.shape[0], memory))
+    mask[:, -min(memory, train_data.shape[1]):] = 1.0
+    # zero pad and mask
+    if train_data.shape[1] < memory:
+        train_data = np.pad(train_data, [(0,0), (memory - train_data.shape[1], 0)], mode="constant")
+    else:
+        train_data = train_data[:,-memory:]
+    # Fix nans in some ts
+    # Setting all nnans to 0 and adding them to the mask.
+    mask = mask*~np.isnan(train_data)
+    train_data[np.isnan(train_data)] = 0.0
     with torch.no_grad():
         for i in range(horizon):
             sample = torch.from_numpy(train_data[:, -memory:])
+            sample_mask = torch.from_numpy(mask[:,-memory:])
             out = model(sample).cpu().detach().numpy()
             train_data = np.hstack((train_data, out))
+            mask = np.hstack((mask, np.ones((mask.shape[0], 1))))
     forecast = train_data[:, -horizon:]
     return forecast
 
@@ -90,23 +103,22 @@ def predict_M4(model: nn.Module) -> np.array:
         period_numeric, period_str = period_from_fname(
             fname=fname, period_dict=cfg.scoring.m4.periods
         )
-        #   logger.debug(fname)
+
         X = create_training_data(fname=fname)
-        #scaler = Scaler().fit(X, freq=period_numeric)
-        #X = scaler.transform(X)
-        #logger.debug(X.shape)
+
         if Scaler.__name__ == "MASEScaler":
             scaler = Scaler()
             X = scaler.fit_transform(X, freq=period_numeric)
         else:
             scaler = Scaler()
             X = scaler.fit_transform(X.T).T
-        #logger.debug(X.shape)
+
         predictions = multi_step_predict(
             model=model,
             train_data=X,
             horizon=cfg.scoring.m4.horizons[period_str],
         )
+
         if Scaler.__name__ == "MASEScaler":
             predictions = scaler.inverse_transform(predictions)
         else:
@@ -116,7 +128,7 @@ def predict_M4(model: nn.Module) -> np.array:
         
     df_all = pd.concat(frames)
     predictions = df_all.values
-    #logger.info(f"predictions shape: {predictions.shape}")
+
     return df_all.values
 
 
@@ -134,7 +146,7 @@ def score_M4(
     tot_mase = 0.0
     tot_smape = 0.0
     for fname_train, fname_test in zip(all_train_files, all_test_files):
-
+        
         df_train = pd.read_csv(fname_train, index_col=0)
         df_test = pd.read_csv(fname_test, index_col=0)
 

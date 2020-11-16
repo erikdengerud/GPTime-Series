@@ -70,6 +70,7 @@ class TSDataset(Dataset):
         values = id_ts["values"]
 
         sample, label, mask = self.sample_ts(values, frequency)
+        label = label.reshape(-1,1).flatten() #to get correct shape
 
         sample_tensor = torch.from_numpy(sample)
         label_tensor = torch.from_numpy(label)
@@ -108,7 +109,16 @@ class TSDataset(Dataset):
 
         sample = ts[(end_index - length) : end_index]
         label = np.array(ts[end_index])
-
+        
+        """
+        freq_int = cfg.dataset.scaling.periods[freq]
+        scaler = Scaler()
+        if Scaler.__name__ == "MASEScaler":
+            sample = scaler.fit_transform(sample, freq=freq_int)
+        else:
+            sample = scaler.fit_transform(sample.reshape(1,-1).T).flatten().T
+        label = scaler.transform(label.reshape(1,-1)).flatten()
+        """
         sample_mask = np.zeros(self.memory)
         sample_mask[-len(sample):] = 1.0
 
@@ -139,20 +149,21 @@ class TSDataset(Dataset):
             vals = np.array(vals)
         else:
             vals = np.array([float(obs["value"]) for obs in ts["observations"]])
-        
-        freq_str = ts["frequency"]
-        freq_int = cfg.dataset.scaling.periods[freq_str]
-        if Scaler.__name__ == "MASEScaler":
-            values_scaled = Scaler().fit_transform(vals, freq=freq_int)
-        else:
-            values_scaled = Scaler().fit_transform(vals.reshape(1,-1).T).flatten().T
 
-        if len(values_scaled) < self.min_lengths[ts["frequency"]]:
-            values_scaled = np.array([])
+        
+        freq_int = cfg.dataset.scaling.periods[ts["frequency"]]
+        scaler = Scaler()
+        if Scaler.__name__ == "MASEScaler":
+            vals = scaler.fit_transform(vals, freq=freq_int)
+        else:
+            vals = scaler.fit_transform(vals.reshape(1,-1).T).flatten()
+        
+        if len(vals) < self.min_lengths[ts["frequency"]]:
+            vals = np.array([])
 
         prepared_ts = {
             "frequency": ts["frequency"],
-            "values" : values_scaled
+            "values" : vals
         }
 
         return prepared_ts
