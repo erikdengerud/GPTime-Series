@@ -77,7 +77,7 @@ def train():
     train_ds, val_ds, test_ds = random_split(
         dataset=ds_use, 
         lengths=[train_length, val_length, test_length],
-        generator=torch.torch.Generator()
+        #generator=torch.torch.Generator()
     )
     logger.info(f"Using {cfg.dataset.proportion * 100}% of the available dataset.")
     logger.info(f"Using frequencies: {[freq for freq, true_false in cfg.dataset.dataset_params.frequencies.items() if true_false]}")

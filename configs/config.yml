@@ -59,11 +59,9 @@ dataset:
   #dataset_name: FREDSimpleDS
   dataset_params:
     dataset_paths:
-      #FRED: /work/erikde/data/processed/FRED
-      FRED_small: /work/erikde/data/processed/FRED_small
-      #M4: /work/erikde/data/processed/M4/
-      #M4_global: M4_GLOBAL_train.npy
-      #M4_global_test: M4_GLOBAL_test.npy
+      #FRED: GPTime/data/processed/FRED
+      FRED_small: GPTime/data/processed/FRED_small
+      #M4: GPTime/data/processed/M4
     frequencies:
       Y: True
       Q: True
@@ -109,7 +107,7 @@ train:
   val_set_size: 0.2
   test_set_size: 0
   num_tests_per_ts: 1
-  max_epochs: 1000
+  max_epochs: 10
   early_stop_tenacity: 30
   log_freq: 5
   clip_gradients: True
@@ -127,7 +125,7 @@ train:
   model_params_mlp:
     in_features: 50
     out_features: 1
-    num_layers: 10
+    num_layers: 3
     n_hidden: 50
     bias: True
     residual: ReZero
