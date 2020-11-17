@@ -44,8 +44,13 @@ preprocess:
       daily: 16
       hourly: 50
       other: 10
+  remove:
+    zero: False
+    zero_treshold: 0.8
+    constant: False 
 
 dataset:
+  proportion: 1
   dataset_module: "GPTime.model.data"
   dataset_name: "TSDataset"
   #dataset_name: DummyDataset
@@ -122,11 +127,11 @@ train:
   model_params_mlp:
     in_features: 50
     out_features: 1
-    num_layers: 5
+    num_layers: 10
     n_hidden: 50
     bias: True
     residual: ReZero
-    res_block_size: 1
+    res_block_size: 3
   model_params_tcn:
     in_channels: 1,
     channels: [32,32,32]

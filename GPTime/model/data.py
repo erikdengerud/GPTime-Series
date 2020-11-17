@@ -103,7 +103,6 @@ class TSDataset(Dataset):
         max_length = min(self.memory, len(ts)) + 1
         assert min_length < max_length, f"min_length ({min_length}) longer than max_length ({max_length})"
 
-    
         length = np.random.randint(min_length, max_length) - 1
         assert length < len(ts), f"length ({length}) longer than len(ts) ({len(ts)})"
         end_index = np.random.randint(length, len(ts))
@@ -159,13 +158,17 @@ class TSDataset(Dataset):
         else:
             vals = scaler.fit_transform(vals.reshape(1,-1).T).flatten()
         #"""
-        #if np.count_nonzero(vals) < 0.5 * len(vals):
-        #    vals = np.array([])
-        #elif len(vals[vals==np.mean(vals)]) == len(vals):
-        #    vals = np.array([])
+        """
+        if np.count_nonzero(vals) < 0.5 * len(vals):
+            vals = np.array([])
+        elif len(vals[vals==np.mean(vals)]) == len(vals):
+            vals = np.array([])
+        elif len(vals[vals < 0]) > 0:
+            vals = np.array([])
+        """
         if len(vals) < self.min_lengths[ts["frequency"]]:
             vals = np.array([])
-
+        
         prepared_ts = {
             "frequency": ts["frequency"],
             "values" : vals

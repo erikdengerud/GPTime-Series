@@ -70,8 +70,26 @@ def process_ts(ts:Dict) -> Tuple[List[Dict], bool, str]:
 
     freq, freq_short = find_frequency(ts["frequency"])
 
+    # valid ts
     sub_lists = [l for l in sub_lists if len(l) > cfg.preprocess.ts.min_length[freq]]
-
+    """
+    valid = []
+    for l in sub_lists:
+        if len(l) > cfg.preprocess.ts.min_length[freq]:
+            if cfg.preprocess.remove.zero:
+                if np.count_nonzero(np.array(l)) < cfg.preprocess.remove.zero_treshold * len(l):
+                    if cfg.preprocess.constant:
+                    vals = np.array(l)
+                    if len(vals[vals==np.mean(vals)]) == len(vals):
+                        valid.append(l)
+            else:
+                if cfg.preprocess.constant:
+                    vals = np.array(l)
+                    if len(vals[vals==np.mean(vals)]) == len(vals):
+                        valid.append(l)
+                else:
+                    valid.append(l)
+    """
     new_jsons = []
     
     for l in sub_lists:
@@ -115,6 +133,8 @@ def preprocess_FRED(account_url:str, container_name:str, dates=False)->None:
                 else:
                     all_frequencies[freq] = 1
 
+                #if processed_jsons.size():
+                #   list_jsons.extend(processed_jsons)
                 list_json.extend(processed_jsons)
 
                 if len(list_json) > cfg.source.samples_per_json:

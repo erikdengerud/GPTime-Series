@@ -39,6 +39,8 @@ DataLoader = getattr(
 def train():
     #np.random.seed(1729)
     #torch.manual_seed(1729)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Device: {device}")
     if Model.__name__ == "MLP":
         model_params = cfg.train.model_params_mlp
     elif Model.__name__ == "AR":
@@ -48,6 +50,7 @@ def train():
     else:
         logger.warning("Unknown model name.")
     model = Model(**model_params).double()
+    model.to(device)
     logger.info(
         f"Number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
     )
@@ -62,15 +65,23 @@ def train():
         **cfg.dataset.dataset_params
         )
 
-    train_length = int(ds.__len__() * cfg.train.train_set_size)
-    val_length = int(ds.__len__() * cfg.train.val_set_size)
-    test_length = ds.__len__() - train_length - val_length
+    # Proportion of ds to use
+    assert cfg.dataset.proportion <= 1 and cfg.dataset.proportion > 0, "Proportion of dataset not between 0 and 1."
+    proportion_length = int(ds.__len__() * cfg.dataset.proportion)
+    ds_use, _ = random_split(dataset=ds, lengths=[proportion_length, ds.__len__() - proportion_length])
+
+    train_length = int(ds_use.__len__() * cfg.train.train_set_size)
+    val_length = int(ds_use.__len__() * cfg.train.val_set_size)
+    test_length = ds_use.__len__() - train_length - val_length
 
     train_ds, val_ds, test_ds = random_split(
-        dataset=ds, 
+        dataset=ds_use, 
         lengths=[train_length, val_length, test_length],
         generator=torch.torch.Generator()
     )
+    logger.info(f"Using {cfg.dataset.proportion * 100}% of the available dataset.")
+    logger.info(f"Using frequencies: {[freq for freq, true_false in cfg.dataset.dataset_params.frequencies.items() if true_false]}")
+    logger.info(f"Train size: {train_ds.__len__()}, Val size: {val_ds.__len__()}, Test size: {test_ds.__len__()}")
 
     # Dataloader
     trainloader = DataLoader(train_ds, **cfg.train.dataloader_params)
@@ -84,27 +95,20 @@ def train():
         time_epoch = time.time()
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
-            inputs, labels, mask = data[0], data[1], data[2]
+            inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
             optimizer.zero_grad()
             outputs = model(inputs, mask)
-            #loss = criterion(outputs.flatten(), labels)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             running_loss += loss.item()
 
-            #loss_np = loss.detach().numpy()
-            #inputs_np = inputs.detach().numpy()
-            #logger.debug(inputs_np[np.argmax(loss_np)])
-        #running_loss /= len(train_ds)
-
         model.eval()
         running_val_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(valloader, 0):
-                inputs, labels, mask = data[0], data[1], data[2]
+                inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
                 outputs = model(inputs, mask)
-                #loss = criterion(outputs.flatten(), labels)
                 loss = criterion(outputs, labels)
                 running_val_loss += loss.item()
             if running_val_loss < low_loss:
@@ -115,19 +119,14 @@ def train():
             if early_stop_count > cfg.train.early_stop_tenacity:
                 print(f"Early stop after epoch {ep}.")
                 break
-        #running_val_loss /= len(val_ds)
 
         running_test_loss = 0.0
         with torch.no_grad():
             for i, data in enumerate(testloader):
-                inputs, labels, mask = data[0], data[1], data[2]
+                inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
                 outputs = model(inputs, mask)
-                #labels = labels.unsqueeze(1)
-                assert outputs.shape == labels.shape, f"Output, {outputs.shape},  and labels, {labels.shape}, have different shapes."
                 loss = criterion(outputs, labels)
                 running_test_loss += loss.item()
-        #running_test_loss /= len(test_ds)
-        #writer.add_scalar("Loss/test", running_test_loss , epoch)
 
         if ep % cfg.train.log_freq == 0:
             logger.info(f"Epoch {ep:>3}: {time.time()-time_epoch:.2f}s/ep, [train, val, test]: [{running_loss:.6f}, {running_val_loss:.6f}, {running_test_loss:.6f}], Early stop count = {early_stop_count}")
