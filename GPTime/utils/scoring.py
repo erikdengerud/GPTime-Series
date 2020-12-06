@@ -178,7 +178,7 @@ def score_M4(
         frequency_metrics[period_str]["OWA"] = owa_freq
 
         crt_pred_index += Y.shape[0]
-
+    
     tot_mase = tot_mase / crt_pred_index
     tot_smape = tot_smape / crt_pred_index
     tot_owa = OWA(tot_mase, tot_smape, freq="global")

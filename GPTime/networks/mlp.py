@@ -6,7 +6,20 @@ class MLP(nn.Module):
     """
     N layer multi layer perceptron with H hidden units in each layer.
     """
-    def __init__(self, in_features:int, out_features:int=1, num_layers:int=5, n_hidden:int=32, bias:bool=True, residual:str="None", res_block_size:int=1):
+    def __init__(
+        self,
+        in_features:int,
+        out_features:int=1,
+        num_layers:int=5,
+        n_hidden:int=32,
+        bias:bool=True,
+        residual:str="None",
+        res_block_size:int=1,
+        forecast_horizon:int=1,
+        skip_connections:bool=True,
+        seasonal_naive:bool=True,
+        ) -> None:
+
         super(MLP, self).__init__()
         assert in_features == n_hidden, f"in_features, {in_features}, need to be similar to n_hidden, {n_hidden} "
         self.in_features = in_features
@@ -17,6 +30,8 @@ class MLP(nn.Module):
         self.bias = bias
         self.residual = residual
         self.res_block_size = res_block_size
+        self.forecast_horizon = forecast_horizon
+        self.seasonal_naive = seasonal_naive
 
         self.layers = nn.ModuleList()
         for i in range(num_layers-1):
@@ -28,7 +43,20 @@ class MLP(nn.Module):
         
         self.init_weights()
 
-    def forward(self, x, mask):
+    def forward(self, x, mask, frequency):
+        if self.seasonal_naive:
+            if self.forecast_horizon == 1:
+                naive = x[:, -frequency].unsqueeze(1)
+            else:
+                period = x[:, -frequency:]
+                num_periods = self.forecast_horizon // frequency
+                naive = torch.cat([period for _ in range(num_periods+1)], dim=1)
+                naive = naive[:, :self.forecast_horizon]
+        else:
+            naive = x[:, -1:]
+        if self.skip_connections:
+            skips = naive
+
         residual = x
         for i in range(self.N-1):
             if (i+1)%self.res_block_size == 0:# and i!=0:
@@ -38,10 +66,17 @@ class MLP(nn.Module):
                     x = x +  F.relu(self.layers[i](x)) * mask
                 elif self.residual == None:
                     x = F.relu(self.layers[i](x)) * mask
+                if self.skip_connections:
+                    skip = skip + x
             else:
                 x = F.relu(self.layers[i](x)) * mask
-        out = self.out(x)
-        return out
+        if self.skip_connections:
+            skip = skip + x 
+            out = self.out(skip)
+        else:
+            out = self.out(x)
+        forecast = naive + out
+        return forecast
     
     def init_weights(self):
         for i in range(self.N - 1):
