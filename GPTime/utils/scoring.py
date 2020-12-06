@@ -146,10 +146,8 @@ def score_M4(
     tot_mase = 0.0
     tot_smape = 0.0
     for fname_train, fname_test in zip(all_train_files, all_test_files):
-        
         df_train = pd.read_csv(fname_train, index_col=0)
         df_test = pd.read_csv(fname_test, index_col=0)
-
         period_num, period_str = period_from_fname(
             fname=fname_train, period_dict=cfg.scoring.m4.periods
         )
@@ -158,7 +156,7 @@ def score_M4(
         Y = df_test.values[:, :horizon]
         index = crt_pred_index + Y.shape[0]
         predicted = predictions[crt_pred_index:index, :horizon]
-
+        
         assert np.sum(np.isnan(Y)) == 0, "NaNs in Y"
         assert np.sum(np.isnan(predicted)) == 0, f"NaNs in predictions: {np.where(np.isnan(predicted))}"
         assert Y.shape == predicted.shape, "Y and predicted have different shapes"
