@@ -103,13 +103,13 @@ train:
   #scaler_name: NoScaler
   scaler_module: sklearn.preprocessing
   scaler_name: MaxAbsScaler
-  train_set_size: 0.8
-  val_set_size: 0.2
+  train_set_size: 0.95
+  val_set_size: 0.05
   test_set_size: 0
   num_tests_per_ts: 1
-  max_epochs: 10
-  early_stop_tenacity: 30
-  log_freq: 1
+  max_epochs: 15
+  early_stop_tenacity: 1000
+  log_freq: 5
   clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
   model_save_path: GPTime/models/
@@ -123,7 +123,7 @@ train:
     out_features: 1
     bias: True
   model_params_mlp:
-    in_features: 100
+    in_features: 108
     out_features: 1
     num_layers: 10
     n_hidden: 512
@@ -144,12 +144,16 @@ train:
     eps: 0.00000001
     weight_decay: 0
     amsgrad: False
-  criterion_module: "torch.nn"
-  criterion_name: "L1Loss"
+  criterion_module: GPTime.utils.loss
+  criterion_name: mase_loss
   criterion_params:
+    test: None
+  #criterion_module: "torch.nn"
+  #criterion_name: "L1Loss"
+  #criterion_params:
     #size_average: True
     #reduce: True
-    reduction: "mean"
+    #reduction: "mean"
   #criterion_name: "MSELoss"
   #criterion_params:
     #size_average: True
@@ -160,7 +164,7 @@ train:
   dataloader_params:
     batch_size: 1024
     shuffle: True
-    num_workers: 4
+    num_workers: 1
 
 evaluate:
   results_path: GPTime/models/

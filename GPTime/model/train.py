@@ -17,7 +17,7 @@ sys.path.append("")
 from GPTime.config import cfg
 from GPTime.model.data import DeterministicTSDataSet
 
-
+from GPTime.model.data import TSDataset_iter
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,8 @@ DataLoader = getattr(
     importlib.import_module(cfg.train.dataloader_module), cfg.train.dataloader_name
 )
 
+def mase(forecast, insample, outsample, frequency):
+    return np.mean(np.abs(forecast - outsample)) / np.mean(np.abs(insample[:-frequency] - insample[frequency:]))
 
 def train():
     #np.random.seed(1729)
@@ -54,7 +56,8 @@ def train():
     logger.info(
         f"Number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
     )
-    criterion = Criterion(**cfg.train.criterion_params)
+    #criterion = Criterion(**cfg.train.criterion_params)
+    criterion = Criterion
     optimizer = Optimizer(model.parameters(), **cfg.train.optimizer_params)
     writer = SummaryWriter(log_dir=cfg.train.tensorboard_log_dir)
 
@@ -87,7 +90,62 @@ def train():
     trainloader = DataLoader(train_ds, **cfg.train.dataloader_params)
     valloader = DataLoader(val_ds, **cfg.train.dataloader_params)
     testloader = DataLoader(train_ds, **cfg.train.dataloader_params)
+    
+    
+    training_set = TSDataset_iter([ts["values"] for ts in ds.all_ts])
+    iter_training_set = iter(training_set)
 
+    lr_decay_step = cfg.train.max_epochs // 3
+    if lr_decay_step == 0:
+        lr_decay_step = 1
+
+    running_loss = 0.0
+    for i in range(1, cfg.train.max_epochs + 1):
+        time_epoch = time.time()
+        iteration_loss = 0.0
+        model.train()
+        data = next(iter_training_set) #data[0].to(device), data[1].to(device), data[2].to(device)
+        inputs, labels, mask = torch.from_numpy(data[0]).to(device), torch.from_numpy(data[1]).to(device), torch.from_numpy(data[2]).to(device)
+        #freq = [cfg.dataset.scaling.periods[f] for f in data[3]]
+        
+        optimizer.zero_grad()
+        forecast = model(inputs, mask, _)
+        loss = criterion(forecast, labels, mask, inputs, 12) # change
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        optimizer.step()
+        running_loss += loss.item()
+        iteration_loss += loss.item()
+
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = cfg.train.optimizer_params.lr * 0.5 ** (i//lr_decay_step)
+
+        if i % cfg.train.log_freq == 0:
+            logger.info(f"Epoch {i:>3}: {time.time()-time_epoch:.2f}s/iter, [log_freq_loss, iter_loss]: [{running_loss:.6f}, {iteration_loss:.6f}]")
+            running_loss = 0.0
+
+    # Build forecasts
+    train_data, mask = training_set.last_insample_window()
+    model.eval()
+    with torch.no_grad():
+        for i in range(18):
+            sample = torch.from_numpy(train_data[:, -model.memory:])
+            sample_mask = torch.from_numpy(mask[:,-model.memory:])
+            out = model(sample, sample_mask, _).cpu().detach().numpy()
+            train_data = np.hstack((train_data, out))
+            mask = np.hstack((mask, np.ones((mask.shape[0], 1))))
+        forecast = train_data[:, -18:]
+
+    df_test_monthly = pd.read_csv(os.path.join(cfg.source.path.M4.raw_test, "Monthly-test.csv"))
+    df_train_monthly = pd.read_csv(os.path.join(cfg.source.path.M4.raw_train, "Monthly-train.csv"))
+    in_sample = np.array([ts[~pd.isnull(ts)] for ts in df_train_monthly.values], dtype=object)
+    target = np.array([ts[~pd.isnull(ts)] for ts in df_test_monthly.values], dtype=object)
+    assert forecast.shape == target.shape, f"forecast.shape: {forecast.shape}, target.shape: {target.shape}"
+    mase_res = np.mean([mase(forecast=forecast[i], insample=in_sample[i], outsample=target[i], frequency=12) for i in range(len(forecast))])
+    logger.debug(f"MASE nbeats way = {mase_res}")
+
+
+    """
     early_stop_count = 0
     low_loss = np.inf
     for ep in range(1, cfg.train.max_epochs + 1):
@@ -99,9 +157,10 @@ def train():
             freq = [cfg.dataset.scaling.periods[f] for f in data[3]]
             
             optimizer.zero_grad()
-            outputs = model(inputs, mask, freq)
-            loss = criterion(outputs, labels)
+            forecast = model(inputs, mask, freq)
+            loss = criterion(forecast, labels, mask, inputs, 12) # change
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             running_loss += loss.item()
 
@@ -112,7 +171,7 @@ def train():
                 inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
                 freq = [cfg.dataset.scaling.periods[f] for f in data[3]]
                 outputs = model(inputs, mask, freq)
-                loss = criterion(outputs, labels)
+                loss = criterion(outputs, labels, mask, inputs, 12)
                 running_val_loss += loss.item()
             if running_val_loss < low_loss:
                 early_stop_count = 0
@@ -129,12 +188,15 @@ def train():
                 inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
                 freq = [cfg.dataset.scaling.periods[f] for f in data[3]]
                 outputs = model(inputs, mask, freq)
-                loss = criterion(outputs, labels)
+                loss = criterion(outputs, labels, mask, inputs, 12)
                 running_test_loss += loss.item()
 
         if ep % cfg.train.log_freq == 0:
             logger.info(f"Epoch {ep:>3}: {time.time()-time_epoch:.2f}s/ep, [train, val, test]: [{running_loss:.6f}, {running_val_loss:.6f}, {running_test_loss:.6f}], Early stop count = {early_stop_count}")
-
+        
+        for param_group in optimizer.param_groups:
+            param_group["lr"] = cfg.train.optimizer_params.lr * 0.5 ** ep
+        """
     # save model
     filename = os.path.join(cfg.train.model_save_path, cfg.run.name + ".pt")
     torch.save(model.state_dict(), filename)

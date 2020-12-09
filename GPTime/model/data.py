@@ -20,6 +20,66 @@ Scaler = getattr(importlib.import_module(cfg.train.scaler_module), cfg.train.sca
 
 logger = logging.getLogger(__name__)
 
+class TSDataset_iter:
+    def __init__(self,timeseries: np.ndarray):
+        """
+        Timeseries sampler.
+        :param timeseries: Timeseries data to sample from. Shape: timeseries, timesteps
+        :param insample_size: Insample window size. If timeseries is shorter then it will be 0-padded and masked.
+        :param outsample_size: Outsample window size. If timeseries is shorter then it will be 0-padded and masked.
+        :param window_sampling_limit: Size of history the sampler should use.
+        :param batch_size: Number of sampled windows.
+        """
+        self.timeseries = [ts for ts in timeseries]
+        self.window_sampling_limit = 27
+        self.batch_size = 1024
+        self.insample_size = 108
+        self.outsample_size = 1
+
+    def __iter__(self):
+        """
+        Batches of sampled windows.
+        :return: Batches of:
+         Insample: "batch size, insample size"
+         Insample mask: "batch size, insample size"
+         Outsample: "batch size, outsample size"
+         Outsample mask: "batch size, outsample size"
+        """
+        while True:
+            insample = np.zeros((self.batch_size, self.insample_size))
+            insample_mask = np.zeros((self.batch_size, self.insample_size))
+            outsample = np.zeros((self.batch_size, self.outsample_size))
+            outsample_mask = np.zeros((self.batch_size, self.outsample_size))
+            sampled_ts_indices = np.random.randint(len(self.timeseries), size=self.batch_size)
+            for i, sampled_index in enumerate(sampled_ts_indices):
+                sampled_timeseries = self.timeseries[sampled_index]
+                cut_point = np.random.randint(low=max(1, len(sampled_timeseries) - self.window_sampling_limit),
+                                              high=len(sampled_timeseries),
+                                              size=1)[0]
+
+                insample_window = sampled_timeseries[max(0, cut_point - self.insample_size):cut_point]
+                insample[i, -len(insample_window):] = insample_window
+                insample_mask[i, -len(insample_window):] = 1.0
+                outsample_window = sampled_timeseries[
+                                   cut_point:min(len(sampled_timeseries), cut_point + self.outsample_size)]
+                outsample[i, :len(outsample_window)] = outsample_window
+                outsample_mask[i, :len(outsample_window)] = 1.0
+            yield insample, insample_mask, outsample, outsample_mask
+            
+    def last_insample_window(self):
+        """
+        The last window of insample size of all timeseries.
+        This function does not support batching and does not reshuffle timeseries.
+        :return: Last insample window of all timeseries. Shape "timeseries, insample size"
+        """
+        insample = np.zeros((len(self.timeseries), self.insample_size))
+        insample_mask = np.zeros((len(self.timeseries), self.insample_size))
+        for i, ts in enumerate(self.timeseries):
+            ts_last_window = ts[-self.insample_size:]
+            insample[i, -len(ts):] = ts_last_window
+            insample_mask[i, -len(ts):] = 1.0
+        return insample, insample_mask
+
 class TSDataset(Dataset):
     """
     Time series dataset.
@@ -69,7 +129,7 @@ class TSDataset(Dataset):
         frequency = id_ts["frequency"]
         values = id_ts["values"]
 
-        sample, label, mask = self.sample_ts(values, frequency)
+        sample, label, mask = self.sample_ts_strict(values, frequency)
         label = label.reshape(-1,1).flatten() #to get correct shape
 
         sample_tensor = torch.from_numpy(sample)
@@ -81,6 +141,32 @@ class TSDataset(Dataset):
             mask_tensor = mask_tensor.unsqueeze(0)
 
         return sample_tensor, label_tensor, mask_tensor, frequency
+    
+    def sample_ts_strict(self, ts:np.array, freq:str) -> Tuple[np.array, np.array, np.array]:
+        """Sampling a training sample of a time series. Stricter in the sense that it samples
+        cutoff points closer to the end of the training data.
+
+        Currently only caring about monthly data so using L_h = 1.5 -> window = 18*L_h =27
+
+        Args:
+            ts (np.array): A time series in the form of an array.
+            freq (str): The frequency of the time series. One capitalized letter.
+
+        Returns:
+            Tuple[np.array, np.array, np.array]: The sample, label and mask.
+        """
+        cut_window_len = 27
+        lookback = 27 * 4
+        sample = np.zeros(lookback)
+        sample_mask = np.zeros(lookback)
+        cut_point = np.random.randint(low=max(1, len(ts)-cut_window_len), high=len(ts)-1)
+        sample_window = ts[max(0, cut_point - lookback) : cut_point]
+        sample[-len(sample_window):] = sample_window
+        sample_mask[-len(sample_window):] = 1.0
+        label = np.array(ts[cut_point])
+
+        return sample, label, sample_mask
+
 
     def sample_ts(self, ts:np.array, freq:str) -> Tuple[np.array, np.array, np.array]:
         """Sampling a training sample a time series.

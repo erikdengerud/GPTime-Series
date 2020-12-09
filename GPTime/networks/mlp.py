@@ -123,6 +123,7 @@ class MLP(torch.nn.Module):
         self.frequency = 12
         self.skip_connections = skip_connections
         self.seasonal_naive = seasonal_naive
+        self.memory = in_features
         
         self.layers = torch.nn.ModuleList()
         self.layers.append(torch.nn.Linear(in_features=in_features, out_features=n_hidden))
