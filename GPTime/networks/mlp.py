@@ -21,7 +21,7 @@ class MLP(nn.Module):
         ) -> None:
 
         super(MLP, self).__init__()
-        assert in_features == n_hidden, f"in_features, {in_features}, need to be similar to n_hidden, {n_hidden} "
+        #assert in_features == n_hidden, f"in_features, {in_features}, need to be similar to n_hidden, {n_hidden} "
         self.in_features = in_features
         self.out_features = out_features
         self.N = num_layers
@@ -31,6 +31,7 @@ class MLP(nn.Module):
         self.residual = residual
         self.res_block_size = res_block_size
         self.forecast_horizon = forecast_horizon
+        self.skip_connections = skip_connections
         self.seasonal_naive = seasonal_naive
 
         self.layers = nn.ModuleList()
@@ -46,8 +47,10 @@ class MLP(nn.Module):
     def forward(self, x, mask, frequency):
         if self.seasonal_naive:
             if self.forecast_horizon == 1:
-                naive = x[:, -frequency].unsqueeze(1)
+                naive = x[[i for i in range(x.shape[0])], [-f for f in frequency]].unsqueeze(1)
             else:
+                # We do not have to treat different frequencies here as the frequency should be
+                # the same for all samples when using a multi-step forecast.
                 period = x[:, -frequency:]
                 num_periods = self.forecast_horizon // frequency
                 naive = torch.cat([period for _ in range(num_periods+1)], dim=1)
@@ -61,15 +64,15 @@ class MLP(nn.Module):
         for i in range(self.N-1):
             if (i+1)%self.res_block_size == 0:# and i!=0:
                 if self.residual == "ReZero":
-                    x = x + self.resweight[int(i/self.res_block_size)] * (F.relu(self.layers[i](x)) * mask)
+                    x = x + self.resweight[int(i/self.res_block_size)] * (F.relu(self.layers[i](x)) )#* mask)
                 elif self.residual == "Vanilla":
-                    x = x +  F.relu(self.layers[i](x)) * mask
+                    x = x +  F.relu(self.layers[i](x)) #* mask
                 elif self.residual == None:
-                    x = F.relu(self.layers[i](x)) * mask
+                    x = F.relu(self.layers[i](x)) #* mask
                 if self.skip_connections:
                     skip = skip + x
             else:
-                x = F.relu(self.layers[i](x)) * mask
+                x = F.relu(self.layers[i](x)) #* mask
         if self.skip_connections:
             skip = skip + x 
             out = self.out(skip)

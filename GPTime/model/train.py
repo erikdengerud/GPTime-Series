@@ -96,8 +96,10 @@ def train():
         running_loss = 0.0
         for i, data in enumerate(trainloader, 0):
             inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
+            freq = [cfg.dataset.scaling.periods[f] for f in data[3]]
+            
             optimizer.zero_grad()
-            outputs = model(inputs, mask)
+            outputs = model(inputs, mask, freq)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -108,7 +110,8 @@ def train():
         with torch.no_grad():
             for i, data in enumerate(valloader, 0):
                 inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
-                outputs = model(inputs, mask)
+                freq = [cfg.dataset.scaling.periods[f] for f in data[3]]
+                outputs = model(inputs, mask, freq)
                 loss = criterion(outputs, labels)
                 running_val_loss += loss.item()
             if running_val_loss < low_loss:
@@ -124,7 +127,8 @@ def train():
         with torch.no_grad():
             for i, data in enumerate(testloader):
                 inputs, labels, mask = data[0].to(device), data[1].to(device), data[2].to(device)
-                outputs = model(inputs, mask)
+                freq = [cfg.dataset.scaling.periods[f] for f in data[3]]
+                outputs = model(inputs, mask, freq)
                 loss = criterion(outputs, labels)
                 running_test_loss += loss.item()
 

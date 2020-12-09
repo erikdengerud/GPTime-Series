@@ -61,7 +61,7 @@ def create_training_data(fname: str) -> np.array:
 
 
 def multi_step_predict(
-    model: nn.Module, train_data: np.array, horizon: int
+    model: nn.Module, train_data: np.array, horizon: int, frequencies: np.array,
 ) -> np.array:
     """
     Multi step forecasting with a model on training data.
@@ -82,7 +82,7 @@ def multi_step_predict(
         for i in range(horizon):
             sample = torch.from_numpy(train_data[:, -memory:])
             sample_mask = torch.from_numpy(mask[:,-memory:])
-            out = model(sample, sample_mask).cpu().detach().numpy()
+            out = model(sample, sample_mask, frequencies).cpu().detach().numpy()
             train_data = np.hstack((train_data, out))
             mask = np.hstack((mask, np.ones((mask.shape[0], 1))))
     forecast = train_data[:, -horizon:]
@@ -117,6 +117,7 @@ def predict_M4(model: nn.Module) -> np.array:
             model=model,
             train_data=X,
             horizon=cfg.scoring.m4.horizons[period_str],
+            frequencies=np.array([period_numeric for _ in range(X.shape[0])])
         )
 
         if Scaler.__name__ == "MASEScaler":

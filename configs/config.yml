@@ -30,11 +30,10 @@ source:
 
 
 preprocess:
-  path: 
-    #FRED: GPTime/data/processed/FRED/
-    FRED: /work/erikde/data/processed/FRED
-    M4: GPTime/data/processed/M4/
-    #M4: /work/erikde/data/processed/M4
+  path:
+    #FRED: /work/erikde/data/processed/FRED
+    #FRED_small: /work/erikde/data/processed/FRED_small
+    M4: /work/erikde/data/processed/M4/
   ts:
     min_length:
       yearly: 5
@@ -60,16 +59,17 @@ dataset:
   dataset_params:
     dataset_paths:
       #FRED: GPTime/data/processed/FRED
-      FRED_small: GPTime/data/processed/FRED_small
+      #FRED_small: GPTime/data/processed/FRED_small
       #M4: GPTime/data/processed/M4
-    frequencies:
-      Y: True
-      Q: True
+      M4: /work/erikde/data/processed/M4/
+    frequencies:  
+      Y: False
+      Q: False
       M: True
-      W: True
-      D: True
-      H: True
-      O: True
+      W: False
+      D: False
+      H: False
+      O: False
     min_lengths:
       #Y: 11
       #Q: 11
@@ -109,7 +109,7 @@ train:
   num_tests_per_ts: 1
   max_epochs: 10
   early_stop_tenacity: 30
-  log_freq: 5
+  log_freq: 1
   clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
   model_save_path: GPTime/models/
@@ -123,13 +123,14 @@ train:
     out_features: 1
     bias: True
   model_params_mlp:
-    in_features: 50
+    in_features: 100
     out_features: 1
-    num_layers: 3
-    n_hidden: 50
+    num_layers: 10
+    n_hidden: 512
     bias: True
-    residual: ReZero
+    residual: None
     res_block_size: 3
+    skip_connections: False
   model_params_tcn:
     in_channels: 1,
     channels: [32,32,32]
