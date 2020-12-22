@@ -62,6 +62,7 @@ dataset:
       #FRED_small: GPTime/data/processed/FRED_small
       #M4: GPTime/data/processed/M4
       M4: /work/erikde/data/processed/M4/
+      #FRED: /work/erikde/data/processed/FRED/
     frequencies:  
       Y: False
       Q: False
@@ -101,18 +102,22 @@ train:
   #scaler_name: MASEScaler
   #scaler_module: GPTime.utils.scaling
   #scaler_name: NoScaler
+  scale: False
+  #seasonal_init: True # Something not working here :)
+  seasonal_init: False
   scaler_module: sklearn.preprocessing
   scaler_name: MaxAbsScaler
-  train_set_size: 0.95
-  val_set_size: 0.05
+  train_set_size: 0.999
+  val_set_size: 0.001
   test_set_size: 0
   num_tests_per_ts: 1
   max_epochs: 15
-  early_stop_tenacity: 1000
-  log_freq: 5
+  early_stop_tenacity: 10000
+  log_freq: 1
   clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
-  model_save_path: GPTime/models/
+  #model_save_path: GPTime/models/
+  model_save_path: /work/erikde/models
   # Change model here
   model_module: "GPTime.networks.mlp"
   model_name: "MLP"
@@ -123,14 +128,14 @@ train:
     out_features: 1
     bias: True
   model_params_mlp:
-    in_features: 108
+    in_features: 128
     out_features: 1
-    num_layers: 10
+    num_layers: 20
     n_hidden: 512
     bias: True
     residual: None
-    res_block_size: 3
-    skip_connections: False
+    res_block_size: 5
+    skip_connections: True
   model_params_tcn:
     in_channels: 1,
     channels: [32,32,32]

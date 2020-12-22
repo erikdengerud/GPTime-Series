@@ -17,7 +17,7 @@ class Naive(nn.Module):
         super(Naive, self).__init__()
         self.memory = 1
 
-    def forward(self, x):
+    def forward(self, x, mask, freq):
         return x
 
 
@@ -29,7 +29,7 @@ class MLP(nn.Module):
         self.out = nn.Linear(in_features=n_hidden, out_features=out_features)
         self.memory = in_features
 
-    def forward(self, x):
+    def forward(self, x, mask, freq):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
         out = self.out(x)
@@ -87,6 +87,8 @@ class TestMetrics(unittest.TestCase):
         # smape 0-200
         # mase > 0
         # owa > 0
+    #def test_score_m4_nbeats():
+
 
 
 if __name__ == "__main__":

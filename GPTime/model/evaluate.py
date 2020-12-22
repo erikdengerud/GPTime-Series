@@ -43,7 +43,7 @@ def evaluate():
     model.eval()
 
     # predict test data
-    preds = predict_M4(model=model)
+    preds = predict_M4(model=model, scale=cfg.train.scale, seasonal_init=cfg.train.seasonal_init)
 
     # score test data, save scores
     result_file = os.path.join(cfg.evaluate.results_path, cfg.run.name + ".csv")

@@ -35,7 +35,7 @@ def period_from_fname(fname: str, period_dict: Dict) -> Tuple[int, str]:
     return 1, ""
 
 
-def create_training_data(fname: str) -> np.array:
+def create_training_data(fname: str, memory: int) -> np.array:
     """
     Reverting the training data.
     The data is in a form where the first value is in the first column etc. and it is
@@ -43,59 +43,45 @@ def create_training_data(fname: str) -> np.array:
     the format s.t. the last column is the first value etc.
     """
     Y = pd.read_csv(fname, index_col=0).to_numpy()
-    #logger.debug(Y.shape)
-    tmp = []
+    X = np.zeros((Y.shape[0], memory))
+    X_mask = np.zeros((Y.shape[0], memory))
     for i in range(Y.shape[0]):
         ts = Y[i][~np.isnan(Y[i])]
-        tmp.append(
-            np.pad(
-                ts,
-                pad_width=(Y.shape[1] - len(ts), 0),
-                mode="constant",
-                constant_values=np.nan,
-            )
-        )
-    X = np.array(tmp)
-    assert X.shape == Y.shape, f"diff in shapes; Y.shape:{Y.shape}, X.shape:{X.shape}"
-    return X
+        ts = ts[-memory:]
+        X[i, -len(ts):] = ts
+        X_mask[i, -len(ts):] = 1.0
+    return X, X_mask
 
 
 def multi_step_predict(
-    model: nn.Module, train_data: np.array, horizon: int, frequencies: np.array,
+    model: nn.Module, train_data: np.array, mask_data: np.array, horizon: int, frequencies: np.array,
 ) -> np.array:
     """
     Multi step forecasting with a model on training data.
     """
-    memory = getattr(model, "memory")
-    mask = np.zeros((train_data.shape[0], memory))
-    mask[:, -min(memory, train_data.shape[1]):] = 1.0
-    # zero pad and mask
-    if train_data.shape[1] < memory:
-        train_data = np.pad(train_data, [(0,0), (memory - train_data.shape[1], 0)], mode="constant")
-    else:
-        train_data = train_data[:,-memory:]
-    # Fix nans in some ts
-    # Setting all nnans to 0 and adding them to the mask.
-    mask = mask*~np.isnan(train_data)
-    train_data[np.isnan(train_data)] = 0.0
+    memory = train_data.shape[1]
     with torch.no_grad():
         for i in range(horizon):
             sample = torch.from_numpy(train_data[:, -memory:])
-            sample_mask = torch.from_numpy(mask[:,-memory:])
-            out = model(sample, sample_mask, frequencies).cpu().detach().numpy()
+            sample_mask = torch.from_numpy(mask_data[:,-memory:])
+            last_period = torch.from_numpy(sample.shape[1] - frequencies)
+            #logger.debug(last_period.shape)
+            #logger.debug(last_period[0])
+            out = model(sample, sample_mask, last_period).cpu().detach().numpy()
             train_data = np.hstack((train_data, out))
-            mask = np.hstack((mask, np.ones((mask.shape[0], 1))))
+            mask = np.hstack((mask_data, np.ones((mask_data.shape[0], 1))))
     forecast = train_data[:, -horizon:]
     return forecast
 
 
-def predict_M4(model: nn.Module) -> np.array:
+def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False) -> np.array:
     """ Predicting M4 using a model provided. """
     assert hasattr(model, "forward")
-    assert hasattr(model, "memory")
+    #assert hasattr(model, "memory")
     model.eval()
 
     all_train_files = glob.glob(cfg.path.m4_train + "*")
+    #all_train_files = glob.glob(cfg.path.m4_train + "Monthly*")
     all_train_files.sort()
     assert len(all_train_files) > 0, f"Did not find data in {cfg.path.m4_train}"
     frames = []
@@ -104,26 +90,32 @@ def predict_M4(model: nn.Module) -> np.array:
             fname=fname, period_dict=cfg.scoring.m4.periods
         )
 
-        X = create_training_data(fname=fname)
-
-        if Scaler.__name__ == "MASEScaler":
-            scaler = Scaler()
-            X = scaler.fit_transform(X, freq=period_numeric)
+        if hasattr(model, "memory"):
+            memory = getattr(model, "memory")
         else:
-            scaler = Scaler()
-            X = scaler.fit_transform(X.T).T
+            memory = cfg.train.model_params_mlp.in_features
+        X, X_mask = create_training_data(fname=fname, memory=memory)
+
+        if scale:
+            max_scale = np.expand_dims(np.max(X, 1), axis=1)                                                                                         
+            X = np.divide(X, max_scale)
+
+        if seasonal_init:
+            frequencies = np.array([period_numeric for _ in range(X.shape[0])])
+        else:
+            frequencies = np.array([1 for _ in range(X.shape[0])])
 
         predictions = multi_step_predict(
             model=model,
             train_data=X,
+            mask_data=X_mask,
             horizon=cfg.scoring.m4.horizons[period_str],
-            frequencies=np.array([period_numeric for _ in range(X.shape[0])])
+            frequencies=frequencies,
         )
 
-        if Scaler.__name__ == "MASEScaler":
-            predictions = scaler.inverse_transform(predictions)
-        else:
-            predictions = scaler.inverse_transform(predictions.T).T
+        if scale:
+            predictions = np.multiply(predictions, max_scale)
+
         df = pd.DataFrame(predictions)
         frames.append(df)
         
@@ -141,6 +133,8 @@ def score_M4(
     # Read in and prepare the data
     all_test_files = glob.glob(cfg.path.m4_test + "*")
     all_train_files = glob.glob(cfg.path.m4_train + "*")
+    #all_test_files = glob.glob(cfg.path.m4_test + "Monthly*")
+    #all_train_files = glob.glob(cfg.path.m4_train + "Monthly*")
     all_test_files.sort()
     all_train_files.sort()
     crt_pred_index = 0
@@ -170,7 +164,8 @@ def score_M4(
         owa_freq = OWA(mase=mase_freq, smape=smape_freq, freq=period_str)
         tot_mase += mase_freq * Y.shape[0]
         tot_smape += smape_freq * Y.shape[0]
-
+        #logger.debug(f"mase_freq = {mase_freq}")
+        #logger.debug(f"smape_freq = {smape_freq}")
         frequency_metrics[period_str] = {}
         frequency_metrics[period_str]["MASE"] = mase_freq
         frequency_metrics[period_str]["SMAPE"] = smape_freq
@@ -206,7 +201,7 @@ if __name__ == "__main__":
             self.out = nn.Linear(in_features=n_hidden, out_features=out_features)
             self.memory = in_features
 
-        def forward(self, x):
+        def forward(self, x, mask, freq):
             x = F.relu(self.l1(x))
             x = F.relu(self.l2(x))
             out = self.out(x)

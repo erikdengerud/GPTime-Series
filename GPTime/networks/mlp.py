@@ -6,6 +6,157 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+
+class MLP(torch.nn.Module): 
+    """
+    MLP 
+    """
+    def __init__(
+        self,
+        in_features,
+        out_features,
+        num_layers,
+        n_hidden,
+        residual:str=None,
+        res_block_size:int=1,
+        forecast_horizon:int=1,
+        skip_connections:bool=False,
+        seasonal_naive:bool=False,
+        bias:bool=True,
+        dropout:float=0.2,
+        )->None:
+        super(MLP, self).__init__()
+        self.input_size = in_features
+        self.output_size = out_features
+        self.n_layers = num_layers
+        self.layer_size = n_hidden
+        self.res_block_size = res_block_size
+        self.residual = residual
+        self.frequency = 12
+        self.skip_connections = skip_connections
+        self.seasonal_naive = seasonal_naive
+        self.memory = in_features
+        self.dropout = dropout
+        
+        self.layers = torch.nn.ModuleList()
+        self.dropout_layers = torch.nn.ModuleList()
+        self.layers.append(torch.nn.Linear(in_features=in_features, out_features=n_hidden))
+        self.dropout_layers.append(nn.Dropout(p=dropout))
+        for i in range(1, self.n_layers-1):
+            self.layers.append(torch.nn.Linear(in_features=n_hidden, out_features=n_hidden))
+            self.dropout_layers.append(nn.Dropout(p=dropout))
+        self.out_layer = torch.nn.Linear(in_features=n_hidden, out_features=out_features)
+ 
+        self.init_weights()
+        #logger.debug(f"Building model with frequency {self.frequency}")
+        logger.debug(f"Input size of model: {in_features}.")
+        logger.debug(f"Number of layers: {num_layers}.")
+        logger.debug(f"Number of hidden units: {n_hidden}.")
+
+    def forward(self, x, mask, last_period):
+        naive = torch.gather(x, 1, last_period.unsqueeze(1))
+        if self.skip_connections:
+            skip = 0
+        x = self.layers[0](x)
+        x = self.dropout_layers[0](x)
+        res = x
+        for i, layer in enumerate(self.layers[1:], start=1):
+            if (i+1) % self.res_block_size:
+                x = res + F.relu(layer(x)) # This is supposed to be better since the signal can pass directly through ref https://arxiv.org/abs/1603.05027
+                x = self.dropout_layers[i](x)
+                res = x
+                if self.skip_connections:
+                    skip += x
+            else:
+                x = F.relu(layer(x))
+                x = self.dropout_layers[i](x)
+        if self.skip_connections:
+            skip = skip + x
+            out = self.out_layer(skip)
+        else:
+            out = self.out_layer(x)
+        forecast = out + naive
+
+        return forecast
+
+    def init_weights(self):
+        for layer in self.layers:
+            nn.init.xavier_normal_(layer.weight)
+        nn.init.xavier_normal_(self.out_layer.weight)
+        """
+        naive = torch.gather(x, 1, last_period.unsqueeze(1))
+        for i, layer in enumerate(self.layers):
+            #x = F.relu(layer(x))
+            x = torch.relu(layer(x))
+        out = self.out_layer(x)
+        forecast = out + naive
+        return forecast
+        """
+        #"""
+
+        """
+        naive = x[:, -1:] # A naive forecast as starting point 
+        res = x     
+        for i, layer in enumerate(self.layers):
+            x = torch.relu(layer(x))
+        block_forecast = self.out_layer(x)
+        forecast = naive  + block_forecast
+        return forecast
+
+        """
+
+
+        """
+        if self.seasonal_naive:
+            naive = x[:, -self.frequency].unsqueeze(1) # Use the last period as the initial forec    ast for the next.
+        else:
+            naive = x[:, -1:] # A naive forecast as starting point 
+        res = x     
+        if self.skip_connections:
+            skip = 0
+        for i, layer in enumerate(self.layers):
+            if (i+1)%self.res_block_size == 0:
+                if self.residual == "Vanilla":
+                    x = torch.relu(layer(x)) + res
+                    res = x
+                    if self.skip_connections:
+                        skip = skip + x
+                else:
+                    x = torch.relu(layer(x))
+            else:
+                x = torch.relu(layer(x))
+        if self.skip_connections:
+            skip = skip + x
+            block_forecast = self.out_layer(skip)
+        else: 
+            block_forecast = self.out_layer(x)
+        forecast = naive  + block_forecast
+        return forecast
+        """
+
+if __name__ == "__main__":
+    mlp = MLP(
+        in_features=10,
+        out_features=1,
+        num_layers=10,
+        n_hidden=10,
+        bias=True,
+        residual="ReZero",
+        res_block_size=3,
+        )
+    import numpy as np
+    x = torch.randn(3, 10)
+    mask = np.zeros((3, 10))
+    mask[:, 5:] = 1.0
+    mask = torch.from_numpy(mask).float()
+    print(x)
+    print(mask)
+    #print(mask.shape)
+    #print(F.relu(nn.Linear(10,10)(x)).shape)
+    out = mlp(x, mask, 1)
+    print(out)
+
 class MLP_orig(nn.Module):
     """
     N layer multi layer perceptron with H hidden units in each layer.
@@ -20,8 +171,8 @@ class MLP_orig(nn.Module):
         residual:str="None",
         res_block_size:int=1,
         forecast_horizon:int=1,
-        skip_connections:bool=True,
-        seasonal_naive:bool=True,
+        skip_connections:bool=False,
+        seasonal_naive:bool=False,
         ) -> None:
 
         super(MLP_orig, self).__init__()
@@ -38,17 +189,29 @@ class MLP_orig(nn.Module):
         self.skip_connections = skip_connections
         self.seasonal_naive = seasonal_naive
 
-        self.layers = nn.ModuleList()
-        for i in range(num_layers-1):
-            self.layers.append(nn.Linear(in_features=in_features if i==0 else n_hidden, out_features=n_hidden, bias=bias))
-        self.out = nn.Linear(in_features=n_hidden, out_features=out_features, bias=bias)
+
+        self.layers = torch.nn.ModuleList()
+        self.layers.append(torch.nn.Linear(in_features=in_features, out_features=n_hidden, bias=bias))
+        for i in range(1, self.N-1):
+            self.layers.append(torch.nn.Linear(in_features=n_hidden, out_features=n_hidden, bias=bias))
+        self.out = torch.nn.Linear(in_features=n_hidden, out_features=out_features, bias=bias)
+
 
         if self.residual == "ReZero":
             self.resweight = nn.Parameter(torch.zeros(int(num_layers/res_block_size)), requires_grad=True)
         
-        self.init_weights()
+        #self.init_weights()
 
     def forward(self, x, mask, frequency):
+        naive = x[:,-12].unsqueeze(1)
+        print(naive.shape)
+        for i, layer in enumerate(self.layers):
+            #x = F.relu(layer(x))
+            x = torch.relu(layer(x))
+        out = self.out(x)
+        forecast = out + naive
+        return forecast
+        """
         if self.seasonal_naive:
             if self.forecast_horizon == 1:
                 naive = x[[i for i in range(x.shape[0])], [-f for f in frequency]].unsqueeze(1)
@@ -81,9 +244,11 @@ class MLP_orig(nn.Module):
             skip = skip + x 
             out = self.out(skip)
         else:
+            print(x.shape)
             out = self.out(x)
         forecast = naive + out
         return forecast
+        """
     
     def init_weights(self):
         for i in range(self.N - 1):
@@ -95,89 +260,3 @@ class MLP_orig(nn.Module):
         #nn.init.xavier_normal_(self.layers[i].weight)
         if self.bias:
             nn.init.normal_(self.out.bias, std=1e-6)
-
-class MLP(torch.nn.Module): 
-    """
-    MLP 
-    """
-    def __init__(
-        self,
-        in_features,
-        out_features,
-        num_layers,
-        n_hidden,
-        residual:str=None,
-        res_block_size:int=1,
-        forecast_horizon:int=1,
-        skip_connections:bool=False,
-        seasonal_naive:bool=False,
-        bias:bool=True,
-        )->None:
-        super(MLP, self).__init__()
-        self.input_size = in_features
-        self.output_size = out_features
-        self.n_layers = num_layers
-        self.layer_size = n_hidden
-        self.res_block_size = res_block_size
-        self.residual = residual
-        self.frequency = 12
-        self.skip_connections = skip_connections
-        self.seasonal_naive = seasonal_naive
-        self.memory = in_features
-        
-        self.layers = torch.nn.ModuleList()
-        self.layers.append(torch.nn.Linear(in_features=in_features, out_features=n_hidden))
-        for i in range(1, self.n_layers-1):
-            self.layers.append(torch.nn.Linear(in_features=n_hidden, out_features=n_hidden))
-        self.out_layer = torch.nn.Linear(in_features=n_hidden, out_features=out_features)
- 
-        logger.debug(f"Building model with frequency {self.frequency}")
-
-    def forward(self, x, mask, _):
-        if self.seasonal_naive:
-            naive = x[:, -self.frequency].unsqueeze(1) # Use the last period as the initial forec    ast for the next.
-        else:
-            naive = x[:, -1:] # A naive forecast as starting point 
-        res = x     
-        if self.skip_connections:
-            skip = 0
-        for i, layer in enumerate(self.layers):
-            if (i+1)%self.res_block_size == 0:
-                if self.residual == "Vanilla":
-                    x = torch.relu(layer(x)) + res
-                    res = x
-                    if self.skip_connections:
-                        skip = skip + x
-                else:
-                    x = torch.relu(layer(x))
-            else:
-                x = torch.relu(layer(x))
-        if self.skip_connections:
-            skip = skip + x
-            block_forecast = self.out_layer(skip)
-        else: 
-            block_forecast = self.out_layer(x)
-        forecast = naive  + block_forecast
-        return forecast
-
-if __name__ == "__main__":
-    mlp = MLP(
-        in_features=10,
-        out_features=1,
-        num_layers=10,
-        n_hidden=10,
-        bias=True,
-        residual="ReZero",
-        res_block_size=3,
-        )
-    import numpy as np
-    x = torch.randn(3, 10)
-    mask = np.zeros((3, 10))
-    mask[:, 5:] = 1.0
-    mask = torch.from_numpy(mask).float()
-    print(x)
-    print(mask)
-    #print(mask.shape)
-    #print(F.relu(nn.Linear(10,10)(x)).shape)
-    out = mlp(x, mask, 1)
-    print(out)
