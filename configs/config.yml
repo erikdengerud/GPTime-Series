@@ -50,6 +50,9 @@ preprocess:
 
 dataset:
   proportion: 1
+  val: True
+  h_val: False
+  v_val: True
   dataset_module: "GPTime.model.data"
   dataset_name: "TSDataset"
   #dataset_name: DummyDataset
@@ -57,6 +60,7 @@ dataset:
   #dataset_name: MonteroMansoHyndmanDS
   #dataset_name: FREDSimpleDS
   dataset_params:
+    lookback: 4
     dataset_paths:
       #FRED: GPTime/data/processed/FRED
       #FRED_small: GPTime/data/processed/FRED_small
@@ -64,13 +68,13 @@ dataset:
       M4: /work/erikde/data/processed/M4/
       #FRED: /work/erikde/data/processed/FRED/
     frequencies:  
-      Y: False
-      Q: False
+      Y: True
+      Q: True
       M: True
-      W: False
-      D: False
-      H: False
-      O: False
+      W: True
+      D: True
+      H: True
+      O: True
     min_lengths:
       #Y: 11
       #Q: 11
@@ -103,16 +107,17 @@ train:
   #scaler_module: GPTime.utils.scaling
   #scaler_name: NoScaler
   scale: False
+  lr_scheduler: plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
+  swa: True
+  dropout: True
   #seasonal_init: True # Something not working here :)
   seasonal_init: False
   scaler_module: sklearn.preprocessing
   scaler_name: MaxAbsScaler
-  train_set_size: 0.999
-  val_set_size: 0.001
-  test_set_size: 0
+  train_set_size: 0.75 # 0-1
   num_tests_per_ts: 1
-  max_epochs: 15
-  early_stop_tenacity: 10000
+  max_epochs: 200
+  early_stop_tenacity: 30
   log_freq: 1
   clip_gradients: True
   tensorboard_log_dir: GPTime/models/runs/
@@ -130,12 +135,13 @@ train:
   model_params_mlp:
     in_features: 128
     out_features: 1
-    num_layers: 20
+    num_layers: 10
     n_hidden: 512
     bias: True
     residual: None
     res_block_size: 5
     skip_connections: True
+    dropout: 0.2
   model_params_tcn:
     in_channels: 1,
     channels: [32,32,32]

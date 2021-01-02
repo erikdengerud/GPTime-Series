@@ -32,9 +32,12 @@ class TSDataset(Dataset):
         min_lengths:Dict[str, int],
         cutoff_date:str=None,  
         convolutions:bool=False,
+        ds_type:str="full",
+        lookback:int=4,
         ) -> None:
         super(TSDataset, self).__init__()
         assert memory >= max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
+        assert ds_type in ["train", "val", "full"]
         self.memory = memory
         self.convolutions = convolutions
         self.min_lengths = min_lengths
@@ -42,15 +45,25 @@ class TSDataset(Dataset):
         if cutoff_date is not None:
             self.cutoff_date_date = time.strptime(cutoff_date, "%Y-%m-%d")
 
-        self.cut_window_length = {
-            "Y" : 9,
-            "Q" : 12,
-            "M" : 27,
-            "W" : 130,
-            "D" : 140,
-            "H" : 480,
-        }
-        self.lookback = 4
+        if ds_type == "val":
+            self.cut_window_length = {
+                "Y" : 6,
+                "Q" : 8,
+                "M" : 18,
+                "W" : 13,
+                "D" : 14,
+                "H" : 48,
+            }
+        else:
+            self.cut_window_length = {
+                "Y" : 9,
+                "Q" : 12,
+                "M" : 27,
+                "W" : 130,
+                "D" : 140,
+                "H" : 480,
+            }
+        self.lookback = lookback
         self.horizons = {
             "Y" : 6,
             "Q" : 8,
@@ -59,6 +72,7 @@ class TSDataset(Dataset):
             "D" : 14,
             "H" : 48,
         }
+        self.ds_type = ds_type
 
         # Read data into memory
         all_ts = []
@@ -194,6 +208,13 @@ class TSDataset(Dataset):
         else:
             vals = np.array([float(obs["value"]) for obs in ts["observations"]])
     
+        if self.ds_type == "train":
+            # remove the last horizon of each time series if the dataset is train
+            h = self.horizons[ts["frequency"]]
+            if len(vals) < h:
+                vals = np.array([])
+            else:
+                vals = vals[:-h]
         if np.count_nonzero(vals) < 0.5 * len(vals):
             vals = np.array([])
         elif len(vals[vals==np.mean(vals)]) == len(vals):
@@ -211,75 +232,6 @@ class TSDataset(Dataset):
 
         return prepared_ts
         
-
-class DeterministicTSDataSet(Dataset):
-    """
-    Deterministic version of the TSDataset for validation and testing.
-    """
-    def __init__(
-        self, 
-        dataset,
-        num_tests_per_ts:int,
-        )->None:
-        super(DeterministicTSDataSet, self).__init__()
-        self.memory = dataset.dataset.memory
-        self.convolutions = dataset.dataset.convolutions
-        self.min_lengths = dataset.dataset.min_lengths
-        all_ts = []
-        for ind in dataset.indices:
-            all_ts.append(dataset.dataset.all_ts[ind])
-        self.all_ts = all_ts
-        self.num_tests_per_ts = num_tests_per_ts
-        
-        self.all_samples, self.all_labels, self.all_frequencies = self.create_deterministic_samples()
-        logging.info("Created deterministic samples.")
-        
-    def __len__(self):
-        return len(self.all_samples)
-    
-    def __getitem__(self, idx):
-        #id_ts = self.all_samples[idx]
-        #frequency = id_ts["frequency"]
-        #values = id_ts["values"]
-        sample = self.all_samples[idx]
-        label = self.all_labels[idx]
-        frequency = self.all_frequencies[idx]
-
-        sample_tensor = torch.from_numpy(sample)
-        label_tensor = torch.from_numpy(label)
-
-        if self.convolutions:
-            sample_tensor = sample_tensor.unsqueeze(0)
-
-        return sample_tensor, label_tensor, frequency
-
-    def create_deterministic_samples(self)-> Tuple[np.array, np.array, np.array]:
-        all_samples = []
-        all_labels = []
-        all_frequencies = []
-        sample_indexes = [i // self.num_tests_per_ts for i in range(len(self.all_ts)*self.num_tests_per_ts)]
-        for si in sample_indexes:
-            freq = self.all_ts[si]["frequency"]
-            values = self.all_ts[si]["values"]
-            sample, label = self.sample_ts(values, freq)
-            all_samples.append(sample)
-            all_labels.append(label)
-            all_frequencies.append(freq)
-        return all_samples, all_labels, all_frequencies
-
-    def sample_ts(self, ts:np.array, freq:str) -> Tuple[np.array, np.array]:
-        min_length = self.min_lengths[freq]
-        max_length = self.memory
-        length = np.random.randint(min_length, max_length)
-        end_index = np.random.randint(min_length, len(ts))
-        sample = ts[max(0, end_index - length) : end_index]
-        label = np.array(ts[end_index])
-        scale = MASEscale(sample, freq)
-        sample_scaled = sample / scale
-        label_scaled = label / scale
-        sample_scaled_pad = np.pad(sample_scaled, (self.memory-len(sample_scaled), 0), mode="constant", constant_values=0)
-        assert len(sample_scaled_pad) == self.memory, f"Sample is not as long as memory. Length sample: {len(sample_scaled_pad)}, memory:{self.memory}"
-        return np.asarray(sample_scaled_pad), np.asarray(label_scaled)
 
 
 class DummyDataset(Dataset):
@@ -501,159 +453,3 @@ if __name__=="__main__":
 
         break
 
-    """
-    ds = MonteroMansoHyndmanSimpleDS(
-        memory=12,
-        convolutions=False,
-        **cfg.dataset.dataset_params)
-    from torch.utils.data import DataLoader
-    dl = DataLoader(dataset=ds, batch_size=16, shuffle=True, num_workers=4)
-    for i, data in enumerate(dl):
-        x, y, f = data
-        logger.info(f"Batch {i+1}")
-        logger.debug(x.shape)
-        logger.debug(y.shape)
-        logger.debug(x)
-        logger.debug(y)
-        #output = model(x)
-        #logger.info(output.shape)
-        break
-    """
-    """
-    ds = DummyDataset(
-        memory=100,
-        convolutions=False,
-        **cfg.dataset.dataset_params)
-    from torch.utils.data import DataLoader
-    dl = DataLoader(dataset=ds, batch_size=1, shuffle=True, num_workers=4)
-    for i, data in enumerate(dl):
-        x, y, f = data
-        logger.info(f"Batch {i+1}")
-        logger.debug(x.shape)
-        logger.debug(y.shape)
-        logger.debug(x)
-        logger.debug(y)
-        #output = model(x)
-        #logger.info(output.shape)
-        break
-    """
-    """
-    ds = TSDataset(
-        memory=100,
-        convolutions=True,
-        **cfg.dataset.dataset_params)
-    logger.debug(ds.__len__())
-    #x, y, f = ds.__getitem__([1,3,100])
-    from torch.utils.data import random_split
-    train_length = int(ds.__len__() * cfg.train.train_set_size)
-    val_length = int(ds.__len__() * cfg.train.val_set_size)
-    test_length = ds.__len__() - train_length - val_length
-    train_ds, val_ds, test_ds = random_split(
-        dataset=ds, 
-        lengths=[train_length, val_length, test_length],
-        generator=torch.torch.Generator()
-        )
-    logger.info(train_ds.__len__())
-    logger.info(val_ds.__len__())
-    logger.info(test_ds.__len__())
-
-    ds_val = DeterministicTSDataSet(val_ds, num_tests_per_ts=3)
-    logger.info(ds_val.__len__())
-    x, y, f = ds_val.__getitem__(1)
-    logger.debug(x.shape)
-    logger.debug(y.shape)
-    logger.info(x)
-    logger.info(y)
-    logger.info(f)
-    x1, y, f = ds_val.__getitem__(1)
-    x2, y, f = ds_val.__getitem__(1)
-    x3, y, f = ds_val.__getitem__(1)
-    logger.info(x1)
-    logger.info(x2)
-    logger.info(x3)
-    """
-
-    """
-    from GPTime.networks.mlp import MLP
-    from GPTime.networks.tcn import TCN
-    #model = MLP(in_features=100, out_features=1, num_layers=5, n_hidden=32, bias=True).double()
-    model = TCN(in_channels=1, channels=[8,8,8,1], kernel_size=2).double()
-    from torch.utils.data import DataLoader
-    dl = DataLoader(dataset=ds, batch_size=1024, shuffle=True, num_workers=4)
-    for i, data in enumerate(dl):
-        x, y, f = data
-        logger.info(f"Batch {i+1}")
-        logger.debug(x.shape)
-        logger.debug(y.shape)
-        output = model(x)
-        logger.info(output.shape)
-    """
-    """
-    logger.debug(x.shape)
-    logger.debug(y.shape)
-    logger.info(x)
-    logger.info(y)
-    logger.info(f)
-    """
-"""
-class TSDataset_iter:
-    def __init__(self,timeseries: np.ndarray):
-        "#""
-        Timeseries sampler.
-        :param timeseries: Timeseries data to sample from. Shape: timeseries, timesteps
-        :param insample_size: Insample window size. If timeseries is shorter then it will be 0-padded and masked.
-        :param outsample_size: Outsample window size. If timeseries is shorter then it will be 0-padded and masked.
-        :param window_sampling_limit: Size of history the sampler should use.
-        :param batch_size: Number of sampled windows.
-        "#""
-        self.timeseries = [ts for ts in timeseries]
-        self.window_sampling_limit = 27
-        self.batch_size = 1024
-        self.insample_size = 72
-        self.outsample_size = 1
-
-    def __iter__(self):
-        "#""
-        Batches of sampled windows.
-        :return: Batches of:
-         Insample: "batch size, insample size"
-         Insample mask: "batch size, insample size"
-         Outsample: "batch size, outsample size"
-         Outsample mask: "batch size, outsample size"
-        "#""
-        while True:
-            insample = np.zeros((self.batch_size, self.insample_size))
-            insample_mask = np.zeros((self.batch_size, self.insample_size))
-            outsample = np.zeros((self.batch_size, self.outsample_size))
-            outsample_mask = np.zeros((self.batch_size, self.outsample_size))
-            sampled_ts_indices = np.random.randint(len(self.timeseries), size=self.batch_size)
-            for i, sampled_index in enumerate(sampled_ts_indices):
-                sampled_timeseries = self.timeseries[sampled_index]
-                cut_point = np.random.randint(low=max(1, len(sampled_timeseries) - self.window_sampling_limit),
-                                              high=len(sampled_timeseries),
-                                              size=1)[0]
-
-                insample_window = sampled_timeseries[max(0, cut_point - self.insample_size):cut_point]
-                insample[i, -len(insample_window):] = insample_window
-                insample_mask[i, -len(insample_window):] = 1.0
-                outsample_window = sampled_timeseries[
-                                   cut_point:min(len(sampled_timeseries), cut_point + self.outsample_size)]
-                outsample[i, :len(outsample_window)] = outsample_window
-                outsample_mask[i, :len(outsample_window)] = 1.0
-            yield insample, insample_mask, outsample, outsample_mask
-
-    def last_insample_window(self):
-        "#""
-        The last window of insample size of all timeseries.
-        This function does not support batching and does not reshuffle timeseries.
-        :return: Last insample window of all timeseries. Shape "timeseries, insample size"
-        "#""
-        insample = np.zeros((len(self.timeseries), self.insample_size))
-        insample_mask = np.zeros((len(self.timeseries), self.insample_size))
-        for i, ts in enumerate(self.timeseries):
-            ts_last_window = ts[-self.insample_size:]
-            insample[i, -len(ts):] = ts_last_window
-            insample_mask[i, -len(ts):] = 1.0
-        return insample, insample_mask
-
-"""
