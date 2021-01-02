@@ -1,0 +1,98 @@
+# Model name for saving etc
+model_name: test_name
+# Learning rate Scheduler
+lr_scheduler: plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
+# Stochastic Weught Averaging
+swa: True
+
+# Train Loop
+max_epochs: 200
+early_stop_tenacity: 30
+log_freq: 1
+clip_gradients: True
+tensorboard_log_dir: GPTime/models/runs/
+model_save_path: /work/erikde/models
+
+# Dataset
+proportion: 1 # Proportion of the dataset to use
+val: True
+h_val: False
+v_val: True
+dataset_module: "GPTime.model.data"
+dataset_name: "TSDataset"
+dataset_params:
+  lookback: 4
+  dataset_paths:
+    #FRED: GPTime/data/processed/FRED
+    #FRED_small: GPTime/data/processed/FRED_small
+    #M4: GPTime/data/processed/M4
+    M4: /work/erikde/data/processed/M4/
+    #FRED: /work/erikde/data/processed/FRED/
+  frequencies:  
+    Y: False
+    Q: False
+    M: True
+    W: False
+    D: False
+    H: False
+    O: False
+  min_lengths:
+    Y: 9
+    Q: 12
+    M: 27
+    W: 13
+    D: 14
+    H: 48
+    O: 20 
+  cutoff_date:
+scaling:
+  periods:
+    Y: 1
+    Q: 4
+    M: 12
+    W: 1
+    D: 1
+    H: 24
+    O: 1
+
+# Dataloader
+train_set_size: 0.75 # 0-1
+num_tests_per_ts: 1
+scale: False
+dataloader_module: "torch.utils.data"
+dataloader_name: "DataLoader"
+dataloader_params:
+  batch_size: 1024
+  shuffle: True
+  num_workers: 1
+
+# Change model here
+seasonal_init: False
+model_module: "GPTime.networks.mlp"
+model_name: "MLP"
+model_params_mlp:
+  in_features: 128
+  out_features: 1
+  num_layers: 10
+  n_hidden: 512
+  bias: True
+  residual: None
+  res_block_size: 5
+  skip_connections: True
+  dropout: 0.2
+
+# Optimizer
+optimizer_module: "torch.optim"
+optimizer_name: "Adam"
+optimizer_params:
+  lr: 0.001
+  betas: [0.9, 0.999]
+  eps: 0.00000001
+  weight_decay: 0
+  amsgrad: False
+
+# Loss
+criterion_module: GPTime.utils.loss
+criterion_name: mase_loss
+criterion_params:
+  test: None
