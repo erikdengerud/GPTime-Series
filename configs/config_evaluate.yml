@@ -1,1 +1,22 @@
+name: test_name
+model_save_path: /work/erikde/models
+result_path: /work/erikde
+predictions_path: /work/erikde
+
 results_path: GPTime/models/
+val_set: True
+scale: False
+seasonal_init: False
+
+model_module: GPTime.networks.mlp
+model_name: MLP
+model_params_mlp:
+  in_features: 256
+  out_features: 1
+  num_layers: 10
+  n_hidden: 1024
+  bias: True
+  residual: Vanilla
+  res_block_size: 2
+  skip_connections: True
+  dropout: 0.2

@@ -23,32 +23,42 @@ from torch.optim.swa_utils import AveragedModel, SWALR
 
 logger = logging.getLogger(__name__)
 
-Model = getattr(importlib.import_module(cfg.train.model_module), cfg.train.model_name)
-Criterion = getattr(
-    importlib.import_module(cfg.train.criterion_module), cfg.train.criterion_name
-)
-Optimizer = getattr(
-    importlib.import_module(cfg.train.optimizer_module), cfg.train.optimizer_name
-)
-Dataset = getattr(
-    importlib.import_module(cfg.dataset.dataset_module), cfg.dataset.dataset_name
-)
-DataLoader = getattr(
-    importlib.import_module(cfg.train.dataloader_module), cfg.train.dataloader_name
-)
+
+#def smape_2_loss(forecast, target, mask) -> t.float:
+#    """
+#    sMAPE loss as defined in https://robjhyndman.com/hyndsight/smape/ (Makridakis 1993)
+#    :param forecast: Forecast values. Shape: batch, time
+#    :param target: Target values. Shape: batch, time
+#    :param mask: 0/1 mask. Shape: batch, time
+#    :return: Loss value
+#    """
+#    return 200 * t.mean(divide_no_nan(t.abs(forecast - target), t.abs(forecast.data) + t.abs(target.data)) * mask)
 
 
-def train():
+def train(train_cfg):
     #np.random.seed(1729)
     #torch.manual_seed(1729)
+    Model = getattr(importlib.import_module(train_cfg.model_module), train_cfg.model_name)
+    Criterion = getattr(
+        importlib.import_module(train_cfg.criterion_module), train_cfg.criterion_name
+    )
+    Optimizer = getattr(
+        importlib.import_module(train_cfg.optimizer_module), train_cfg.optimizer_name
+    )
+    Dataset = getattr(
+        importlib.import_module(train_cfg.dataset_module), train_cfg.dataset_name
+    )
+    DataLoader = getattr(
+        importlib.import_module(train_cfg.dataloader_module), train_cfg.dataloader_name
+    )
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     logger.info(f"Device: {device}")
     if Model.__name__ == "MLP":
-        model_params = cfg.train.model_params_mlp
+        model_params = train_cfg.model_params_mlp
     elif Model.__name__ == "AR":
-        model_params = cfg.train.model_params_ar
+        model_params = train_cfg.model_params_ar
     elif Model.__name__ == "TCN":
-        model_params = cfg.train.model_params_tcn
+        model_params = train_cfg.model_params_tcn
     else:
         logger.warning("Unknown model name.")
     model = Model(**model_params).double()
@@ -57,64 +67,64 @@ def train():
         f"Number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
     )
 
-    #criterion = Criterion(**cfg.train.criterion_params)
+    #criterion = Criterion(**train_cfg.criterion_params)
     criterion = Criterion
-    optimizer = Optimizer(model.parameters(), **cfg.train.optimizer_params)
-    writer = SummaryWriter(log_dir=cfg.train.tensorboard_log_dir)
+    optimizer = Optimizer(model.parameters(), **train_cfg.optimizer_params)
+    writer = SummaryWriter(log_dir=train_cfg.tensorboard_log_dir)
 
     # Learning rate 
-    lr_decay_step = int(0.9*cfg.train.max_epochs) // 10
+    lr_decay_step = int(0.9*train_cfg.max_epochs) // 10
     if lr_decay_step == 0:
         lr_decay_step = 1
 
-    if cfg.train.lr_scheduler == "multiplicative":
+    if train_cfg.lr_scheduler == "multiplicative":
         lmbda = lambda epoch: 0.95
         scheduler = MultiplicativeLR(optimizer, lr_lambda=lmbda, verbose=True)
-    elif cfg.train.lr_scheduler == "plateau":
+    elif train_cfg.lr_scheduler == "plateau":
         scheduler = ReduceLROnPlateau(optimizer, "min", verbose=True)
-    elif cfg.train.lr_scheduler == "cosine":
-        scheduler = CosineAnnealingLR(optimizer, T_max=cfg.train.max_epochs, verbose=True)
-    elif cfg.train.lr_scheduler == "cosine_warm":
+    elif train_cfg.lr_scheduler == "cosine":
+        scheduler = CosineAnnealingLR(optimizer, T_max=train_cfg.max_epochs, verbose=True)
+    elif train_cfg.lr_scheduler == "cosine_warm":
         scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=30, verbose=True)
-    logger.info(f"Using learning rate sheduler: {cfg.train.lr_scheduler}")
+    logger.info(f"Using learning rate sheduler: {train_cfg.lr_scheduler}")
 
-    if cfg.train.swa:
+    if train_cfg.swa:
         # TODO: Fix swa to work with early stop. Not really a problem without  the validatoin set. 
         swa_model = AveragedModel(model)
-        swa_start = int(0.9*cfg.train.max_epochs)
+        swa_start = int(0.9*train_cfg.max_epochs)
         swa_scheduler = SWALR(optimizer, swa_lr=0.000001)
 
     # Dataset
     # TODO: log lookback and loss function
     
-    if cfg.dataset.val:
+    if train_cfg.val:
         logger.info("Using a validation split.")
-        assert cfg.dataset.h_val + cfg.dataset.v_val < 2, "Horizontal and vertical validation split both selected!"
+        assert train_cfg.h_val + train_cfg.v_val < 2, "Horizontal and vertical validation split both selected!"
         # Make a train and val set
-        if cfg.dataset.v_val:
+        if train_cfg.v_val:
             # make a horisontal train val split
             ds_train = Dataset(
                 memory=model.memory,
                 convolutions=True if Model.__name__=="TCN" else False,
                 ds_type="train",
-                **cfg.dataset.dataset_params
+                **train_cfg.dataset_params
                 )
 
             ds_val = Dataset(
                 memory=model.memory,
                 convolutions=True if Model.__name__=="TCN" else False,
                 ds_type="val",
-                **cfg.dataset.dataset_params
+                **train_cfg.dataset_params
                 )
 
-        elif cfg.dataset.h_val:
+        elif train_cfg.h_val:
             # make a vertical train val split
             # Proportion of ds to use
-            assert cfg.dataset.proportion <= 1 and cfg.dataset.proportion > 0, "Proportion of dataset not between 0 and 1."
-            proportion_length = int(ds.__len__() * cfg.dataset.proportion)
+            assert train_cfg.proportion <= 1 and train_cfg.proportion > 0, "Proportion of dataset not between 0 and 1."
+            proportion_length = int(ds.__len__() * train_cfg.proportion)
             ds_use, _ = random_split(dataset=ds, lengths=[proportion_length, ds.__len__() - proportion_length])
 
-            train_length = int(ds_use.__len__() * cfg.train.train_set_size)
+            train_length = int(ds_use.__len__() * train_cfg.train_set_size)
             val_length = ds_use.__len__() - train_length
 
             train_ds, val_ds = random_split(
@@ -122,14 +132,14 @@ def train():
                 lengths=[train_length, val_length],
                 #generator=torch.torch.Generator()
             )
-            logger.info(f"Using {cfg.dataset.proportion * 100}% of the available dataset.")
-            logger.info(f"Using frequencies: {[freq for freq, true_false in cfg.dataset.dataset_params.frequencies.items() if true_false]}")
+            logger.info(f"Using {train_cfg.proportion * 100}% of the available dataset.")
+            logger.info(f"Using frequencies: {[freq for freq, true_false in train_cfg.dataset_params.frequencies.items() if true_false]}")
             logger.info(f"Train size: {train_ds.__len__()}, Val size: {val_ds.__len__()}")
 
             # Dataloader
-            train_loader = DataLoader(train_ds, **cfg.train.dataloader_params)
-            val_loader = DataLoader(val_ds, **cfg.train.dataloader_params)
-            test_loader = DataLoader(train_ds, **cfg.train.dataloader_params)
+            train_loader = DataLoader(train_ds, **train_cfg.dataloader_params)
+            val_loader = DataLoader(val_ds, **train_cfg.dataloader_params)
+            test_loader = DataLoader(train_ds, **train_cfg.dataloader_params)
 
         else:
             # Not specified
@@ -141,13 +151,14 @@ def train():
             memory=model.memory,
             convolutions=True if Model.__name__=="TCN" else False,
             ds_type="full",
-            **cfg.dataset.dataset_params
+            **train_cfg.dataset_params
         )
 
-    logger.info(f"seasonal init: {cfg.train.seasonal_init}")
+    logger.info(f"seasonal init: {train_cfg.seasonal_init}")
 
     train_loader = DataLoader(dataset=ds_train, batch_size=1024)
-    val_loader = DataLoader(dataset=ds_val, batch_size=1024)
+    if train_cfg.val:
+        val_loader = DataLoader(dataset=ds_val, batch_size=1024)
     logger.info("Training model.")
     logger.info(f"Length of dataset: {len(ds_train)}")
 
@@ -155,7 +166,7 @@ def train():
     val_running_loss = 0.0
     low_loss = np.inf
     early_stop_count = 0
-    for ep in range(1, cfg.train.max_epochs+1):
+    for ep in range(1, train_cfg.max_epochs+1):
         epoch_loss = 0.0
         batches_non_inf = 0
         for i, data in enumerate(train_loader):
@@ -168,25 +179,26 @@ def train():
             #last_period = data[4].to(device)
             freq_int = data[4].to(device)
 
-            if cfg.train.seasonal_init:
+            if train_cfg.seasonal_init:
                 last_period = sample.shape[1]-freq_int
             else:
                 last_period = torch.tensor(sample.shape[1]-1).repeat(sample.shape[0])
 
             optimizer.zero_grad()
 
-            if cfg.train.scale:
+            if train_cfg.scale:
                 max_scale = torch.max(sample, 1).values.unsqueeze(1)                                                                                                                                    
                 sample = torch.div(sample, max_scale)
                 sample[torch.isnan(sample)] = 0.0
 
             forecast = model(sample, sample_mask, last_period)
 
-            if cfg.train.scale:
+            if train_cfg.scale:
                 forecast = torch.mul(forecast, max_scale)
                 sample = torch.mul(sample, max_scale)
 
             training_loss = criterion(forecast, label, sample, sample_mask, freq_int)
+            #training_loss = smape_2_loss(forecast, label, sample, sample_mask, freq_int)
 
             if np.isnan(float(training_loss)):
                 logger.warning("Training loss is inf")
@@ -202,7 +214,7 @@ def train():
 
         running_loss += epoch_loss / batches_non_inf
 
-        if cfg.dataset.val:
+        if train_cfg.val:
             val_epoch_loss = 0.0
             val_batches_non_inf = 0
             for i, data in enumerate(val_loader):
@@ -214,19 +226,19 @@ def train():
                 #last_period = data[4].to(device)
                 freq_int = data[4].to(device)
 
-                if cfg.train.seasonal_init:
+                if train_cfg.seasonal_init:
                     last_period = sample.shape[1]-freq_int
                 else:
                     last_period = torch.tensor(sample.shape[1]-1).repeat(sample.shape[0])
 
-                if cfg.train.scale:
+                if train_cfg.scale:
                     max_scale = torch.max(sample, 1).values.unsqueeze(1)
                     sample = torch.div(sample, max_scale)
                     sample[torch.isnan(sample)] = 0.0
 
                 forecast = model(sample, sample_mask, last_period)
 
-                if cfg.train.scale:
+                if train_cfg.scale:
                     forecast = torch.mul(forecast, max_scale)
                     sample = torch.mul(sample, max_scale)
                 # TODO: Fix loss 
@@ -237,55 +249,59 @@ def train():
 
             val_running_loss += val_epoch_loss / val_batches_non_inf
 
-        if cfg.dataset.val:
+        if train_cfg.val:
             if val_epoch_loss < low_loss:
                 low_loss = val_epoch_loss
                 early_stop_count = 0
             else:
                 early_stop_count += 1
-            if early_stop_count > cfg.train.early_stop_tenacity:
+            if early_stop_count > train_cfg.early_stop_tenacity:
                 logger.info(f"Early stop after epoch {ep}.")
                 break
 
-        if cfg.train.swa and ep > swa_start:
+        if train_cfg.swa and ep > swa_start:
             swa_model.update_parameters(model)
             swa_scheduler.step()
         else:
-            if cfg.train.lr_scheduler == "plateau":
-                if cfg.dataset.val:
+            if train_cfg.lr_scheduler == "plateau":
+                if train_cfg.val:
                     scheduler.step(val_epoch_loss)
                 else:
                     scheduler.step(epoch_loss)
-            elif cfg.train.lr_scheduler is not None:
+            elif train_cfg.lr_scheduler is not None:
                 scheduler.step()
-            if cfg.train.lr_scheduler is None:
+            if train_cfg.lr_scheduler is None:
                 for param_group in optimizer.param_groups:
                     old_lr = param_group["lr"]
-                    param_group["lr"] = cfg.train.optimizer_params.lr * 0.5 ** (ep // lr_decay_step)
+                    param_group["lr"] = train_cfg.optimizer_params.lr * 0.5 ** (ep // lr_decay_step)
                     new_lr = param_group["lr"]
                     if old_lr != new_lr:
                         logger.info(f"Changed learning rate. Current lr = {param_group['lr']}")
         
-        if (ep) % 5 == 0:
-            if cfg.dataset.val:
-                logger.info(f"Epoch {ep:<5d} [Avg. Loss, Loss], [avg. ValLoss, ValLoss]: [{running_loss / 5 :.4f}, {epoch_loss / batches_non_inf:.4f}] [{val_running_loss / 5 :.4f}, {val_epoch_loss / val_batches_non_inf:.4f}], {early_stop_count}")
+        if (ep) % train_cfg.log_freq == 0:
+            if train_cfg.val:
+                logger.info(f"Epoch {ep:<5d} [Avg. Loss, Loss], [avg. ValLoss, ValLoss]: [{running_loss / train_cfg.log_freq :.4f}, {epoch_loss / batches_non_inf:.4f}] [{val_running_loss / train_cfg.log_freq :.4f}, {val_epoch_loss / val_batches_non_inf:.4f}], {early_stop_count}")
                 running_loss = 0.0
                 val_running_loss = 0.0
             else:
-                logger.info(f"Epoch {ep:<5d} [Avg. Loss, Loss]: [{running_loss / 5 :.4f}, {epoch_loss / batches_non_inf:.4f}], {early_stop_count}")
+                logger.info(f"Epoch {ep:<5d} [Avg. Loss, Loss]: [{running_loss / train_cfg.log_freq :.4f}, {epoch_loss / batches_non_inf:.4f}], {early_stop_count}")
                 running_loss = 0.0
     
-        # save model
-    filename = os.path.join(cfg.train.model_save_path, cfg.run.name + ".pt")
+    # save model
+    filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".pt")
     torch.save(model.state_dict(), filename)
-    filename = os.path.join(cfg.train.model_save_path, cfg.run.name + ".yaml")
-    cfg.to_yaml(filename)
+    filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".yaml")
+    train_cfg.to_yaml(filename)
+    # vv comment out
+    preds, df_preds = predict_M4(model=model, scale=train_cfg.scale, seasonal_init=train_cfg.seasonal_init)
+    res = score_M4(predictions=preds)
+    logger.info(res)
     logger.info("Finished training!")
 
-    if cfg.train.swa:
-        filename = os.path.join(cfg.train.model_save_path, cfg.run.name + "_swa.pt")
+    if train_cfg.swa:
+        filename = os.path.join(train_cfg.model_save_path, train_cfg.name + "_swa.pt")
         torch.save(model.state_dict(), filename)
-        preds = predict_M4(model=swa_model, scale=cfg.train.scale, seasonal_init=cfg.train.seasonal_init)
+        preds = predict_M4(model=swa_model, scale=train_cfg.scale, seasonal_init=train_cfg.seasonal_init)
         res = score_M4(predictions=preds)
         logger.info(res)
         logger.info("Finished SWA!")

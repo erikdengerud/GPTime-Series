@@ -1,0 +1,15 @@
+# Ensemble cfgs
+cfg_files_path: configs
+ensemble_name: test_idun
+storage_folder:
+global_model: True
+train_cfg_path: configs/config_train.yml
+slurm_jobs_folder: slurm_jobs/
+
+# Ensemble variations
+loss_functions: [mase_loss] #["smape_loss", "mase_loss", "mape_loss"]
+forecast_inits: [naive] #[naive, naive_seasonal]
+# for almost global models
+lookbacks: [2, 3, 4, 5, 6, 7]
+# for global models
+input_window_lengths: [256] #[32, 64, 128, 256, 512, 1024]

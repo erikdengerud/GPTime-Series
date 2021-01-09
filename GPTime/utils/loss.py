@@ -19,7 +19,7 @@ def divide_non_nan(x: torch.Tensor, y:torch.Tensor) -> torch.Tensor:
     res[torch.isinf(res)] = 0.0
     return res
 
-def mape_loss(forecast: torch.Tensor, target: torch.Tensor, mask:torch.Tensor) -> torch.Tensor:
+def mape_loss(forecast: torch.Tensor, target: torch.Tensor, tmp1:None, mask:torch.Tensor, tmp2:None) -> torch.Tensor:
     """Measures the Mean Absolute Percentage Error.
 
     Args:
@@ -33,7 +33,7 @@ def mape_loss(forecast: torch.Tensor, target: torch.Tensor, mask:torch.Tensor) -
     weights = divide_non_nan(mask, target)
     return torch.mean(torch.abs(forecast - target) * weights)
  
-def smape_loss(forecast: torch.Tensor, target: torch.Tensor, mask:torch.Tensor) -> torch.Tensor:
+def smape_loss(forecast: torch.Tensor, target: torch.Tensor, tmp1:None, mask:torch.Tensor, tmp2:None) -> torch.Tensor:
     """Measures the Symmetric Mean Absolute Percentage Error. https://robjhyndman.com/hyndsight/smape/
 
     Args:

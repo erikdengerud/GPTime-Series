@@ -74,14 +74,16 @@ def multi_step_predict(
     return forecast
 
 
-def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False) -> np.array:
+def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, val_set:bool=False) -> np.array:
     """ Predicting M4 using a model provided. """
     assert hasattr(model, "forward")
     #assert hasattr(model, "memory")
     model.eval()
 
-    all_train_files = glob.glob(cfg.path.m4_train + "*")
-    #all_train_files = glob.glob(cfg.path.m4_train + "Monthly*")
+    if val_set:
+        all_train_files = glob.glob(cfg.path.m4_val_train + "*")
+    else:
+        all_train_files = glob.glob(cfg.path.m4_train + "*")
     all_train_files.sort()
     assert len(all_train_files) > 0, f"Did not find data in {cfg.path.m4_train}"
     frames = []
@@ -122,19 +124,21 @@ def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False) ->
     df_all = pd.concat(frames)
     predictions = df_all.values
 
-    return df_all.values
+    return df_all.values, df_all
 
 
 def score_M4(
-    predictions: np.array, df_results_name: str = "GPTime/results/M4/test.csv"
+    predictions: np.array, df_results_name: str = "GPTime/results/M4/test.csv", val:bool=False
 ) -> Dict:
     """ Calculating the OWA. Return dict of scores of subfrequencies also."""
     frequency_metrics: Dict[str, Dict[str, float]] = {}
     # Read in and prepare the data
-    all_test_files = glob.glob(cfg.path.m4_test + "*")
-    all_train_files = glob.glob(cfg.path.m4_train + "*")
-    #all_test_files = glob.glob(cfg.path.m4_test + "Monthly*")
-    #all_train_files = glob.glob(cfg.path.m4_train + "Monthly*")
+    if val:
+        all_test_files = glob.glob(cfg.path.m4_val_test + "*")
+        all_train_files = glob.glob(cfg.path.m4_val_train + "*")
+    else:
+        all_test_files = glob.glob(cfg.path.m4_test + "*")
+        all_train_files = glob.glob(cfg.path.m4_train + "*")
     all_test_files.sort()
     all_train_files.sort()
     crt_pred_index = 0

@@ -19,30 +19,39 @@ with open("GPTime/credentials.yml", "r") as ymlfile:
 
 # source(credentials, small_sample=True)
 
+tasks = {
+    "source": source,
+    "preprocess": preprocess,
+    "train": train,
+    "evaluate": evaluate,
+}
+logger = logging.getLogger(__name__)
 
-def run_pipeline():
-    tasks = {
-        "source": source,
-        "preprocess": preprocess,
-        "train" : train,
-        "evaluate": evaluate,
-    }
 
-    perform_task = {
-        "source": cfg.run.source_hard,
-        "preprocess": cfg.run.preprocess_hard,
-        "train": cfg.run.train_hard,
-        "evaluate": cfg.run.evaluate_hard,
-    }
+def main(task, task_cfg):
+    try:
+        tasks[task](task_cfg)
+    except:
+        logger.error(f"Task {task} failed")
+        raise
 
-    for task in tasks:
-        if perform_task[task]:
-            logger.info(f"Task: {task}")
-            try:
-                tasks[task]()
-            except:
-                logger.error(f"Task {task} failed")
-                raise
+
+@click.command()
+@click.option("--cfg_path", required=True)
+@click.option(
+    "--task",
+    type=click.Choice(tasks.keys()),
+    required=True,
+    help="Name of task to execute",
+)
+def main_cli(task, cfg_path):
+    with open(cfg_path, "r") as ymlfile:
+        task_cfg = Box(yaml.safe_load(ymlfile))
+    main(task, task_cfg)
+
+
+
+
     """
     logger.info("Training step.")
     train()
@@ -72,9 +81,10 @@ def run_pipeline():
     """
 
 
+"""
 if __name__ == "__main__":
     run_pipeline()
-
+"""
 
 """
 tasks = {
@@ -103,4 +113,31 @@ def main(task):
 )
 def main_cli(task):
     main(task)
+"""
+
+"""
+
+def run_pipeline():
+    tasks = {
+        "source": source,
+        "preprocess": preprocess,
+        "train" : train,
+        "evaluate": evaluate,
+    }
+
+    perform_task = {
+        "source": cfg.run.source_hard,
+        "preprocess": cfg.run.preprocess_hard,
+        "train": cfg.run.train_hard,
+        "evaluate": cfg.run.evaluate_hard,
+    }
+
+    for task in tasks:
+        if perform_task[task]:
+            logger.info(f"Task: {task}")
+            try:
+                tasks[task]()
+            except:
+                logger.error(f"Task {task} failed")
+                raise
 """

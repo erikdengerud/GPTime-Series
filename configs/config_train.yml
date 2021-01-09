@@ -1,21 +1,21 @@
 # Model name for saving etc
-model_name: test_name
+name: test_name
 # Learning rate Scheduler
-lr_scheduler: plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
-# Stochastic Weught Averaging
-swa: True
+lr_scheduler: #plateau #plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
+# Stochastic Weight Averaging
+swa: False
 
 # Train Loop
-max_epochs: 200
+max_epochs: 150
 early_stop_tenacity: 30
-log_freq: 1
+log_freq: 5
 clip_gradients: True
 tensorboard_log_dir: GPTime/models/runs/
 model_save_path: /work/erikde/models
 
 # Dataset
 proportion: 1 # Proportion of the dataset to use
-val: True
+val: False
 h_val: False
 v_val: True
 dataset_module: "GPTime.model.data"
@@ -45,6 +45,7 @@ dataset_params:
     H: 48
     O: 20 
   cutoff_date:
+
 scaling:
   periods:
     Y: 1
@@ -64,7 +65,7 @@ dataloader_name: "DataLoader"
 dataloader_params:
   batch_size: 1024
   shuffle: True
-  num_workers: 1
+  num_workers: 4
 
 # Change model here
 seasonal_init: False
@@ -76,8 +77,8 @@ model_params_mlp:
   num_layers: 10
   n_hidden: 512
   bias: True
-  residual: None
-  res_block_size: 5
+  residual: Vanilla
+  res_block_size: 2
   skip_connections: True
   dropout: 0.2
 
@@ -93,6 +94,6 @@ optimizer_params:
 
 # Loss
 criterion_module: GPTime.utils.loss
-criterion_name: mase_loss
+criterion_name: mape_loss
 criterion_params:
   test: None
