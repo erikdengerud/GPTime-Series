@@ -1,7 +1,7 @@
 # Ensemble cfgs
 cfg_files_path: configs
-ensemble_name: test_idun
-storage_folder:
+ensemble_name: test_folder_structure
+storage_folder: /work/erikde/experiments
 global_model: True
 train_cfg_path: configs/config_train.yml
 slurm_jobs_folder: slurm_jobs/

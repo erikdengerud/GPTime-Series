@@ -290,8 +290,8 @@ def train(train_cfg):
     # save model
     filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".pt")
     torch.save(model.state_dict(), filename)
-    filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".yaml")
-    train_cfg.to_yaml(filename)
+    #filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".yml")
+    #train_cfg.to_yaml(filename)
     # vv comment out
     preds, df_preds = predict_M4(model=model, scale=train_cfg.scale, seasonal_init=train_cfg.seasonal_init)
     res = score_M4(predictions=preds)

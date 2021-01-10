@@ -62,6 +62,7 @@ def create_ensemble(cfg_path):
     else:
         os.makedirs(os.path.join(ensemble_cfg.cfg_files_path, ensemble_cfg.ensemble_name))
         os.makedirs(os.path.join(ensemble_cfg.slurm_jobs_folder, ensemble_cfg.ensemble_name))
+        os.makedirs(os.path.join(ensemble_cfg.storage_folder, ensemble_cfg.ensemble_name))
 
     # create ensemble member cfgs
     with open(ensemble_cfg.train_cfg_path, "r") as ymlfile:
@@ -70,9 +71,12 @@ def create_ensemble(cfg_path):
     if ensemble_cfg.global_model:
         for member in product(ensemble_cfg.loss_functions, ensemble_cfg.forecast_inits, ensemble_cfg.input_window_lengths):
             # create model name and paths
-            model_name = f"global-{member[0]}-{member[1]}-{member[2]}.yml"
-            model_cfg_path = os.path.join(ensemble_folder, model_name)
+            model_name = f"global-{member[0]}-{member[1]}-{member[2]}"
+            model_name_yml = model_name + ".yml"
+            model_cfg_path = os.path.join(ensemble_folder, model_name_yml)
             # set the ensemble variation
+            train_cfg.name = model_name
+            train_cfg.model_save_path = os.path.join(*[ensemble_cfg.storage_folder, ensemble_cfg.ensemble_name, model_name])
             train_cfg.criterion_name = member[0]
             train_cfg.seasonal_init = True if member[1] == "seasonal_init" else False
             train_cfg.model_params_mlp.in_features = member[2]
@@ -91,9 +95,12 @@ def create_ensemble(cfg_path):
         for freq in train_cfg.dataset_params.frequencies:
             for member in product(ensemble_cfg.loss_functions, ensemble_cfg.forecast_inits, ensemble_cfg.input_window_lengths):
                 # create model name and paths
-                model_name = f"{freq}-{member[0]}-{member[1]}-{member[2]}.yml"
-                model_cfg_path = os.path.join(ensemble_folder, model_name)
+                model_name = f"{freq}-{member[0]}-{member[1]}-{member[2]}"
+                model_name_yml = model_name + ".yml"
+                model_cfg_path = os.path.join(ensemble_folder, model_name_yml)
                 # set the ensemble variation
+                train_cfg.name = model_name
+                train_cfg.model_save_path = os.path.join(*[ensemble_cfg.storage_folder, ensemble_cfg.ensemble_name, model_name])
                 train_cfg.criterion_name = member[0]
                 train_cfg.seasonal_init = True if member[1] == "seasonal_init" else False
                 train_cfg.model_params_mlp.in_features = member[2]
