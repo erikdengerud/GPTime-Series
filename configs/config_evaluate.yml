@@ -7,6 +7,7 @@ results_path: GPTime/models/
 val_set: True
 scale: False
 seasonal_init: False
+global_model: False
 
 model_module: GPTime.networks.mlp
 model_name: MLP

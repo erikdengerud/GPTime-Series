@@ -10,6 +10,8 @@ notebooks/
 .vs/
 slurm_jobs/
 configs/**/
+storage/
+outfiles/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

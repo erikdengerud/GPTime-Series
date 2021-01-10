@@ -59,12 +59,13 @@ def multi_step_predict(
     """
     Multi step forecasting with a model on training data.
     """
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     memory = train_data.shape[1]
     with torch.no_grad():
         for i in range(horizon):
-            sample = torch.from_numpy(train_data[:, -memory:])
-            sample_mask = torch.from_numpy(mask_data[:,-memory:])
-            last_period = torch.from_numpy(sample.shape[1] - frequencies)
+            sample = torch.from_numpy(train_data[:, -memory:]).to(device)
+            sample_mask = torch.from_numpy(mask_data[:,-memory:]).to(device)
+            last_period = torch.from_numpy(sample.shape[1] - frequencies).to(device)
             #logger.debug(last_period.shape)
             #logger.debug(last_period[0])
             out = model(sample, sample_mask, last_period).cpu().detach().numpy()
@@ -74,7 +75,7 @@ def multi_step_predict(
     return forecast
 
 
-def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, val_set:bool=False) -> np.array:
+def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, val_set:bool=False, freq:str=None) -> np.array:
     """ Predicting M4 using a model provided. """
     assert hasattr(model, "forward")
     #assert hasattr(model, "memory")
@@ -85,6 +86,17 @@ def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, va
     else:
         all_train_files = glob.glob(cfg.path.m4_train + "*")
     all_train_files.sort()
+    
+    logger.info(f"freq is {freq}")
+    if freq is not None:
+        logger.info(f"Keeping frequrency {freq}")
+        keep_files = []
+        for fname in all_train_files:
+            period_str, _ = period_from_fname(fname)
+            if period_str[0] == freq:
+                keep_files.append(fname)
+        all_train_files = keep_files
+    logger.info(all_train_files)
     assert len(all_train_files) > 0, f"Did not find data in {cfg.path.m4_train}"
     frames = []
     for fname in all_train_files:

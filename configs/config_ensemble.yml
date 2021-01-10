@@ -1,9 +1,10 @@
 # Ensemble cfgs
 cfg_files_path: configs
-ensemble_name: test_folder_structure4
+ensemble_name: test_evaluate3
 storage_folder: storage/experiments
 global_model: True
 train_cfg_path: configs/config_train.yml
+evaluate_cfg_path: configs/config_evaluate.yml
 slurm_jobs_folder: slurm_jobs/
 
 # Ensemble variations
@@ -12,4 +13,4 @@ forecast_inits: [naive] #[naive, naive_seasonal]
 # for almost global models
 lookbacks: [2, 3, 4, 5, 6, 7]
 # for global models
-input_window_lengths: [256] #[32, 64, 128, 256, 512, 1024]
+input_window_lengths: [256, 512] #[32, 64, 128, 256, 512, 1024]

@@ -6,7 +6,7 @@ import logging
 import glob
 from itertools import product
 
-def create_ensemble_slurm(slurm_jobs_folder, ensemble_name, model_name, cfg_path):
+def create_ensemble_slurm(slurm_jobs_folder, ensemble_name, model_name, cfg_path, evaluate_cfg_path):
 
     slurm_job_name = f"{model_name}.slurm"
     slurm_job_file_path = os.path.join(*[slurm_jobs_folder, ensemble_name, slurm_job_name])
@@ -26,7 +26,8 @@ def create_ensemble_slurm(slurm_jobs_folder, ensemble_name, model_name, cfg_path
         f.write("module load GCC/8.3.0 CUDA/10.1.243 OpenMPI/3.1.4 PyTorch/1.3.1-Python-3.7.4\n")
         f.write("source venv/bin/activate\n")
 
-        f.write(f"python3 -m GPTime --task train --cfg_path {cfg_path}")
+        f.write(f"python3 -m GPTime --task train --cfg_path {cfg_path}\n")
+        f.write(f"python3 -m GPTime --task evaluate --cfg_path {evaluate_cfg_path}")
         f.close()
 
 def create_run_slurm_jobs(slurm_jobs_folder, ensemble_name):
@@ -67,6 +68,8 @@ def create_ensemble(cfg_path):
     # create ensemble member cfgs
     with open(ensemble_cfg.train_cfg_path, "r") as ymlfile:
         train_cfg = Box(yaml.safe_load(ymlfile))
+    with open(ensemble_cfg.evaluate_cfg_path, "r") as ymlfile:
+        evaluate_cfg = Box(yaml.safe_load(ymlfile))
     
     if ensemble_cfg.global_model:
         for member in product(ensemble_cfg.loss_functions, ensemble_cfg.forecast_inits, ensemble_cfg.input_window_lengths):
@@ -87,11 +90,25 @@ def create_ensemble(cfg_path):
                 train_cfg.dataset_params.frequencies[f] = True
             # save the cfg file
             train_cfg.to_yaml(ensemble_member_cfg_path)
+
+            # evaluate_cfg
+            evaluate_cfg.name = model_name
+            evaluate_cfg.model_save_path = train_cfg.model_save_path
+            evaluate_cfg.result_path = train_cfg.model_save_path
+            evaluate_cfg.predictions_path = train_cfg.model_save_path
+            evaluate_cfg.scale = train_cfg.scale
+            evaluate_cfg.seasonal_init = train_cfg.seasonal_init
+            evaluate_cfg.global_model = True
+            evaluate_cfg.model_params_mlp = train_cfg.model_params_mlp
+            ensemble_member_cfg_path_evaluate = os.path.join(ensemble_folder, ensemble_member_name + "-evaluate.yml")
+            evaluate_cfg.to_yaml(ensemble_member_cfg_path_evaluate)
+            
             create_ensemble_slurm(
                 ensemble_cfg.slurm_jobs_folder,
                 ensemble_cfg.ensemble_name,
                 ensemble_member_name,
-                ensemble_member_cfg_path
+                ensemble_member_cfg_path,
+                ensemble_member_cfg_path_evaluate
                 )
             os.makedirs(
                 os.path.join(*[
@@ -122,12 +139,26 @@ def create_ensemble(cfg_path):
                         train_cfg.dataset_params.frequencies[f] = False
                 # save the cfg file
                 train_cfg.to_yaml(ensemble_member_cfg_path)
+                # evaluate_cfg
+                evaluate_cfg.name = model_name
+                evaluate_cfg.model_save_path = train_cfg.model_save_path
+                evaluate_cfg.result_path = train_cfg.model_save_path
+                evaluate_cfg.predictions_path = train_cfg.models_save_path
+                evaluate_cfg.scale = train_cfg.scale
+                evaluate_cfg.seasonal_init = train_cfg.seasonal_init
+                evaluate_cfg.global_model = True
+                evaluate_cfg.model_params_mlp = train_cfg.model_params_mlp
+                ensemble_member_cfg_path_evaluate = os.path.join(ensemble_folder, ensemble_member_name + "-evaluate.yml")
+                evaluate_cfg.to_yaml(ensemble_member_cfg_path_evaluate)
+
                 create_ensemble_slurm(
                     ensemble_cfg.slurm_jobs_folder,
                     ensemble_cfg.ensemble_name,
                     ensemble_member_name,
-                    ensemble_member_cfg_path
+                    ensemble_member_cfg_path,
+                    ensemble_member_cfg_path_evaluate
                     )
+
             os.makedirs(
                 os.path.join(*[
                     ensemble_cfg.storage_folder,
