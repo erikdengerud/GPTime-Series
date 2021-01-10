@@ -90,7 +90,7 @@ def create_ensemble(cfg_path):
             create_ensemble_slurm(
                 ensemble_cfg.slurm_jobs_folder,
                 ensemble_cfg.ensemble_name,
-                model_name,
+                ensemble_member_name,
                 ensemble_member_cfg_path
                 )
             os.makedirs(
@@ -125,7 +125,7 @@ def create_ensemble(cfg_path):
                 create_ensemble_slurm(
                     ensemble_cfg.slurm_jobs_folder,
                     ensemble_cfg.ensemble_name,
-                    model_name,
+                    ensemble_member_name,
                     ensemble_member_cfg_path
                     )
             os.makedirs(
