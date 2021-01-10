@@ -17,8 +17,8 @@ from GPTime.utils.scoring import score_M4, predict_M4
 from GPTime.utils.metrics import MASE, SMAPE
 from GPTime.utils.scaling import MASEScaler
 
-from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, MultiplicativeLR, CosineAnnealingWarmRestarts
-from torch.optim.swa_utils import AveragedModel, SWALR
+from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, CosineAnnealingWarmRestarts # MultiplicativeLR
+#from torch.optim.swa_utils import AveragedModel, SWALR
 
 
 logger = logging.getLogger(__name__)
@@ -182,7 +182,7 @@ def train(train_cfg):
             if train_cfg.seasonal_init:
                 last_period = sample.shape[1]-freq_int
             else:
-                last_period = torch.tensor(sample.shape[1]-1).repeat(sample.shape[0])
+                last_period = torch.tensor(sample.shape[1]-1).repeat(sample.shape[0]).to(device)
 
             optimizer.zero_grad()
 

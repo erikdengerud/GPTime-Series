@@ -64,11 +64,12 @@ def mase_loss(forecast, target, sample, sample_mask, frequency):
     Returns:
         torch.Tensor: The loss.
     """
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     scaling = []
     #np_in_sample =
     for i, row in enumerate(sample):
         scaling.append(torch.mean(torch.abs(row[frequency[i]:] - row[:-frequency[i]]), dim=0))
-    scaling = torch.tensor(scaling)
+    scaling = torch.tensor(scaling).to(device)
     #scaling2 = torch.mean(torch.abs(sample[:, frequency:] - sample[:, :-frequency]), dim=1)
     #scaling2 = torch.mean(torch.abs(sample[:, 12:] - sample[:, :-12]), dim=1)
     #scaling = torch.mean(torch.abs(sample[:, 12:] - sample[:, :-12]), dim=1)

@@ -6,7 +6,7 @@ lr_scheduler: #plateau #plateau #"multiplicative" # "plateau", "cosine", "cosine
 swa: False
 
 # Train Loop
-max_epochs: 150
+max_epochs: 15
 early_stop_tenacity: 30
 log_freq: 5
 clip_gradients: True
@@ -25,8 +25,8 @@ dataset_params:
   dataset_paths:
     #FRED: GPTime/data/processed/FRED
     #FRED_small: GPTime/data/processed/FRED_small
-    #M4: GPTime/data/processed/M4
-    M4: /work/erikde/data/processed/M4/
+    M4: GPTime/data/processed/M4
+    #M4: /work/erikde/data/processed/M4/
     #FRED: /work/erikde/data/processed/FRED/
   frequencies:  
     Y: False

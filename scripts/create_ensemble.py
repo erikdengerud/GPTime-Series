@@ -72,7 +72,7 @@ def create_ensemble(cfg_path):
         for member in product(ensemble_cfg.loss_functions, ensemble_cfg.forecast_inits, ensemble_cfg.input_window_lengths):
             # create model name and paths
             model_name = "global"
-            ensmeble_member_name = f"{member[0]}-{member[1]}-{member[2]}"
+            ensemble_member_name = f"{member[0]}-{member[1]}-{member[2]}"
             #model_name = f"global-{member[0]}-{member[1]}-{member[2]}"
             ensemble_member_yml = ensemble_member_name + ".yml"
             ensemble_member_cfg_path = os.path.join(ensemble_folder, ensemble_member_yml)
@@ -86,7 +86,7 @@ def create_ensemble(cfg_path):
             for f in train_cfg.dataset_params.frequencies:
                 train_cfg.dataset_params.frequencies[f] = True
             # save the cfg file
-            train_cfg.to_yaml(model_cfg_path)
+            train_cfg.to_yaml(ensemble_member_cfg_path)
             create_ensemble_slurm(
                 ensemble_cfg.slurm_jobs_folder,
                 ensemble_cfg.ensemble_name,
@@ -121,7 +121,7 @@ def create_ensemble(cfg_path):
                     else:
                         train_cfg.dataset_params.frequencies[f] = False
                 # save the cfg file
-                train_cfg.to_yaml(model_cfg_path)
+                train_cfg.to_yaml(ensemble_member_cfg_path)
                 create_ensemble_slurm(
                     ensemble_cfg.slurm_jobs_folder,
                     ensemble_cfg.ensemble_name,
