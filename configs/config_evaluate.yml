@@ -8,6 +8,7 @@ val_set: True
 scale: False
 seasonal_init: False
 global_model: False
+lookback:
 
 model_module: GPTime.networks.mlp
 model_name: MLP

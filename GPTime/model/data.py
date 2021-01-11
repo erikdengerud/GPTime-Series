@@ -36,7 +36,7 @@ class TSDataset(Dataset):
         lookback:int=4,
         ) -> None:
         super(TSDataset, self).__init__()
-        assert memory >= max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
+        #assert memory >= max(min_lengths.values()), "Increase model memory, it is shorter than max of min lengths."
         assert ds_type in ["train", "val", "full"]
         self.memory = memory
         self.convolutions = convolutions

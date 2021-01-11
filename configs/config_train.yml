@@ -35,7 +35,7 @@ dataset_params:
     W: False
     D: False
     H: False
-    O: False
+   # O: False
   min_lengths:
     Y: 9
     Q: 12

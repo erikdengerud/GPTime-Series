@@ -92,8 +92,8 @@ def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, va
         logger.info(f"Keeping frequrency {freq}")
         keep_files = []
         for fname in all_train_files:
-            period_str, _ = period_from_fname(fname)
-            if period_str[0] == freq:
+            _, period_str = period_from_fname(fname=fname, period_dict=cfg.scoring.m4.periods)
+            if period_str[0].lower() == freq.lower():
                 keep_files.append(fname)
         all_train_files = keep_files
     logger.info(all_train_files)
