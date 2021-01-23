@@ -46,8 +46,8 @@ def smape_loss(forecast: torch.Tensor, target: torch.Tensor, tmp1:None, mask:tor
     """
     return 200 * torch.mean(
         divide_non_nan(
-            torch.abs(forecast - target), torch.abs(forecast) + torch.abs(target)
-            ) * mask
+            torch.abs(forecast - target), torch.abs(forecast.data) + torch.abs(target.data)
+            )
         )
     
 

@@ -22,3 +22,4 @@ model_params_mlp:
   res_block_size: 2
   skip_connections: True
   dropout: 0.2
+  encode_frequencies: False

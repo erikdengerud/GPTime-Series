@@ -33,7 +33,7 @@ def evaluate(evaluate_cfg):
         model.to(device)
         model.eval()
 
-        preds, df_preds = predict_M4(model=model, scale=evaluate_cfg.scale, seasonal_init=evaluate_cfg.seasonal_init, val_set=evaluate_cfg.val_set)
+        preds, df_preds = predict_M4(model=model, scale=evaluate_cfg.scale, seasonal_init=evaluate_cfg.seasonal_init, val_set=evaluate_cfg.val_set, encode_frequencies=evaluate_cfg.encode_frequencies)
         result_file = os.path.join(evaluate_cfg.result_path, "result.csv")
         logger.info(f"results fiel: {result_file}")
         d = score_M4(preds, df_results_name=result_file, val=evaluate_cfg.val_set)
@@ -66,8 +66,9 @@ def evaluate(evaluate_cfg):
             logger.info(model_path[0])
             preds, df_preds = predict_M4(model=model, scale=evaluate_cfg.scale, seasonal_init=evaluate_cfg.seasonal_init, val_set=evaluate_cfg.val_set, freq=model_path[-4])
             all_dfs.append(df_preds)
+            logger.info(df_preds.head())
         # concat dataframes
-        df_all = pd.concat(all_dfs)
+        df_all = pd.concat(all_dfs, sort=False)
         preds = df_all.values
         # save etc
         result_file = os.path.join(evaluate_cfg.model_save_path, "result.csv")

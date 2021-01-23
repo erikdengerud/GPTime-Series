@@ -1,12 +1,13 @@
 # Model name for saving etc
 name: test_name
 # Learning rate Scheduler
-lr_scheduler: #plateau #plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
+lr_scheduler: #plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
+patience: 10
 # Stochastic Weight Averaging
 swa: False
 
 # Train Loop
-max_epochs: 15
+max_epochs: 200
 early_stop_tenacity: 30
 log_freq: 5
 clip_gradients: True
@@ -29,12 +30,12 @@ dataset_params:
     #M4: /work/erikde/data/processed/M4/
     #FRED: /work/erikde/data/processed/FRED/
   frequencies:  
-    Y: False
-    Q: False
+    Y: True
+    Q: True
     M: True
-    W: False
-    D: False
-    H: False
+    W: True
+    D: True
+    H: True
    # O: False
   min_lengths:
     Y: 9
@@ -72,15 +73,16 @@ seasonal_init: False
 model_module: "GPTime.networks.mlp"
 model_name: "MLP"
 model_params_mlp:
-  in_features: 128
+  in_features: 130
   out_features: 1
-  num_layers: 10
+  num_layers: 5
   n_hidden: 512
   bias: True
   residual: Vanilla
-  res_block_size: 2
+  res_block_size: 4
   skip_connections: True
   dropout: 0.2
+  encode_frequencies: False
 
 # Optimizer
 optimizer_module: "torch.optim"
@@ -94,6 +96,6 @@ optimizer_params:
 
 # Loss
 criterion_module: GPTime.utils.loss
-criterion_name: mape_loss
+criterion_name: smape_loss
 criterion_params:
   test: None

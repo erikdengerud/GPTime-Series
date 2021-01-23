@@ -1,17 +1,18 @@
 # Ensemble cfgs
 cfg_files_path: configs
-ensemble_name: test_lookback3
+ensemble_name: global_1024_10
 storage_folder: storage/experiments
-global_model: False
+global_model: True
 train_cfg_path: configs/config_train.yml
 evaluate_cfg_path: configs/config_evaluate.yml
 slurm_jobs_folder: slurm_jobs/
+val_set: True
 
 # Ensemble variations
-loss_functions: [mase_loss] #["smape_loss", "mase_loss", "mape_loss"]
+loss_functions: [smape_loss] #["smape_loss", "mase_loss", "mape_loss"]
 forecast_inits: [naive] #[naive, naive_seasonal]
 # for almost global models
 #lookbacks: [2, 3, 4, 5, 6, 7]
 lookbacks: [2, 3]
 # for global models
-input_window_lengths: [256, 512] #[32, 64, 128, 256, 512, 1024]
+input_window_lengths: [30, 60, 90, 120, 150, 180] #[256, 512] #[32, 64, 128, 256, 512, 1024]

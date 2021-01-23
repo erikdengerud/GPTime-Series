@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import numpy as np
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -25,6 +27,7 @@ class MLP(torch.nn.Module):
         seasonal_naive:bool=False,
         bias:bool=True,
         dropout:float=0.2,
+        encode_frequencies:bool=False,
         )->None:
         super(MLP, self).__init__()
         self.input_size = in_features
@@ -38,10 +41,30 @@ class MLP(torch.nn.Module):
         self.seasonal_naive = seasonal_naive
         self.memory = in_features
         self.dropout = dropout
+        self.encode_frequencies = encode_frequencies
+
+        self.one_hot = {
+            "Y": np.array([1,0,0,0,0,0]),
+            "Q": np.array([0,1,0,0,0,0]),
+            "M": np.array([0,0,1,0,0,0]),
+            "W": np.array([0,0,0,1,0,0]),
+            "D": np.array([0,0,0,0,1,0]),
+            "H": np.array([0,0,0,0,0,1]),
+            "yearly": np.array([1,0,0,0,0,0]),
+            "quarterly": np.array([0,1,0,0,0,0]),
+            "monthly": np.array([0,0,1,0,0,0]),
+            "weekly": np.array([0,0,0,1,0,0]),
+            "daily": np.array([0,0,0,0,1,0]),
+            "hourly": np.array([0,0,0,0,0,1]),
+            }
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         
         self.layers = torch.nn.ModuleList()
         self.dropout_layers = torch.nn.ModuleList()
-        self.layers.append(torch.nn.Linear(in_features=in_features, out_features=n_hidden))
+        if self.encode_frequencies:
+            self.layers.append(torch.nn.Linear(in_features=in_features+6, out_features=n_hidden))
+        else:
+            self.layers.append(torch.nn.Linear(in_features=in_features, out_features=n_hidden))
         self.dropout_layers.append(nn.Dropout(p=dropout))
         for i in range(1, self.n_layers-1):
             self.layers.append(torch.nn.Linear(in_features=n_hidden, out_features=n_hidden))
@@ -54,10 +77,33 @@ class MLP(torch.nn.Module):
         logger.debug(f"Number of layers: {num_layers}.")
         logger.debug(f"Number of hidden units: {n_hidden}.")
 
-    def forward(self, x, mask, last_period):
+    def forward(self, x, mask, last_period, freq_str_arr):
         naive = torch.gather(x, 1, last_period.unsqueeze(1))
+        #naive = 0
         if self.skip_connections:
             skip = 0
+        if self.encode_frequencies:
+            try:
+                one_hot_freq = []
+                for f in freq_str_arr:
+                    #logger.debug(f"f[0]: {f[0]}")
+                    one_hot_freq.append(self.one_hot[f[0]])
+                #logger.debug(f"len(one_hot_freq): {len(one_hot_freq)}")
+                #logger.debug(f"one_hot_freq[:10]: {one_hot_freq[:3]}")
+                ohf_arr = torch.from_numpy(np.array(one_hot_freq)).to(self.device).double()
+                x = torch.cat((x, ohf_arr), 1)
+            except Exception as e:
+                logger.debug(e)
+                logger.debug(f"len(one_hot_freq): {len(one_hot_freq)}")
+                logger.debug(f"one_hot_freq[:10]: {one_hot_freq[:3]}")
+                logger.debug(f"x.shape: {x.shape}")
+                ohf_arr = np.array(one_hot_freq)
+                logger.debug(f"ohf_arr.shape: {ohf_arr.shape}")
+                ohf_tens = torch.from_numpy(ohf_arr)
+                logger.debug(f"ohf_tens.shape: {ohf_tens.shape}")
+                #for ohf in one_hot_freq:
+                #    logger.debug(ohf)
+                #logger.debug(f"ohf_arr.shape: {ohf_arr.shape}")
         x = self.layers[0](x)
         x = self.dropout_layers[0](x)
         res = x

@@ -116,7 +116,7 @@ class TSDataset(Dataset):
         #last_period = len(sample) - cfg.dataset.scaling.periods[frequency]
         freq_int = cfg.dataset.scaling.periods[frequency]
 
-        return sample_tensor, label_tensor, sample_mask, label_mask, freq_int#last_period, freq_int
+        return sample_tensor, label_tensor, sample_mask, label_mask, freq_int, frequency #last_period, freq_int
     
     def sample_ts_strict(self, ts:np.array, freq:str) -> Tuple[np.array, np.array, np.array]:
         """Sampling a training sample of a time series. Stricter in the sense that it samples

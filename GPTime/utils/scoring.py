@@ -54,28 +54,34 @@ def create_training_data(fname: str, memory: int) -> np.array:
 
 
 def multi_step_predict(
-    model: nn.Module, train_data: np.array, mask_data: np.array, horizon: int, frequencies: np.array,
+    model: nn.Module, train_data: np.array, mask_data: np.array, horizon: int, frequencies: np.array, period_str:str=None,  encode_frequencies:bool=False,
 ) -> np.array:
     """
     Multi step forecasting with a model on training data.
     """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     memory = train_data.shape[1]
+    logger.debug(f"frequencies.shape: {frequencies.shape}")
+    if np.max(frequencies) > memory:
+        frequencies = np.array([1 for _ in range(train_data.shape[0])])
+    freq_str_arr = np.expand_dims(np.repeat(period_str, train_data.shape[0]), axis=1)
     with torch.no_grad():
         for i in range(horizon):
             sample = torch.from_numpy(train_data[:, -memory:]).to(device)
             sample_mask = torch.from_numpy(mask_data[:,-memory:]).to(device)
             last_period = torch.from_numpy(sample.shape[1] - frequencies).to(device)
+            #logger.debug(f"last_period.shape: {last_period.shape}")
+            #logger.debug(f"last_period[0]: {last_period[0]}")
             #logger.debug(last_period.shape)
             #logger.debug(last_period[0])
-            out = model(sample, sample_mask, last_period).cpu().detach().numpy()
+            out = model(sample, sample_mask, last_period, freq_str_arr).cpu().detach().numpy()
             train_data = np.hstack((train_data, out))
             mask = np.hstack((mask_data, np.ones((mask_data.shape[0], 1))))
     forecast = train_data[:, -horizon:]
     return forecast
 
 
-def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, val_set:bool=False, freq:str=None) -> np.array:
+def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, val_set:bool=False, freq:str=None, encode_frequencies:bool=False) -> np.array:
     """ Predicting M4 using a model provided. """
     assert hasattr(model, "forward")
     #assert hasattr(model, "memory")
@@ -89,7 +95,7 @@ def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, va
     
     logger.info(f"freq is {freq}")
     if freq is not None:
-        logger.info(f"Keeping frequrency {freq}")
+        logger.info(f"Keeping requrency {freq}")
         keep_files = []
         for fname in all_train_files:
             _, period_str = period_from_fname(fname=fname, period_dict=cfg.scoring.m4.periods)
@@ -125,17 +131,26 @@ def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, va
             mask_data=X_mask,
             horizon=cfg.scoring.m4.horizons[period_str],
             frequencies=frequencies,
+            period_str=period_str,
+            encode_frequencies=encode_frequencies,
         )
 
         if scale:
             predictions = np.multiply(predictions, max_scale)
 
         df = pd.DataFrame(predictions)
+        #df.index = [f"{period_str[0].upper()}{i}" for i in range(1, len(df)+1)]
+        df["id"] = [f"{period_str[0].upper()}{i}" for i in range(1, len(df)+1)]
+        #df.index.name = "id"
         frames.append(df)
         
-    df_all = pd.concat(frames)
+    logger.info("len of list of dfs: {len(frames)}")
+    df_all = pd.concat(frames, sort=False)
+    df_all = df_all.set_index("id")
+    logger.info(df_all.head())
+    df_all.columns = [f"V{i}" for i in range(1, len(df_all.columns)+1)]
     predictions = df_all.values
-
+    logger.info("evaluate: shape: {df.shape}")
     return df_all.values, df_all
 
 
@@ -157,6 +172,8 @@ def score_M4(
     tot_mase = 0.0
     tot_smape = 0.0
     for fname_train, fname_test in zip(all_train_files, all_test_files):
+        logger.info(fname_test)
+        logger.info(fname_train)
         df_train = pd.read_csv(fname_train, index_col=0)
         df_test = pd.read_csv(fname_test, index_col=0)
         period_num, period_str = period_from_fname(
@@ -167,6 +184,7 @@ def score_M4(
         Y = df_test.values[:, :horizon]
         index = crt_pred_index + Y.shape[0]
         predicted = predictions[crt_pred_index:index, :horizon]
+        logger.info(f"predicted.shape: {predicted.shape}")
         
         assert np.sum(np.isnan(Y)) == 0, "NaNs in Y"
         assert np.sum(np.isnan(predicted)) == 0, f"NaNs in predictions: {np.where(np.isnan(predicted))}"

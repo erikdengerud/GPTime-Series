@@ -73,7 +73,9 @@ def train(train_cfg):
     writer = SummaryWriter(log_dir=train_cfg.tensorboard_log_dir)
 
     # Learning rate 
-    lr_decay_step = int(0.9*train_cfg.max_epochs) // 10
+    num_lr_steps = 10
+    logger.info(f"{num_lr_steps} steps in the learning schedule if None")
+    lr_decay_step = int(train_cfg.max_epochs) // num_lr_steps
     if lr_decay_step == 0:
         lr_decay_step = 1
 
@@ -81,9 +83,9 @@ def train(train_cfg):
         lmbda = lambda epoch: 0.95
         scheduler = MultiplicativeLR(optimizer, lr_lambda=lmbda, verbose=True)
     elif train_cfg.lr_scheduler == "plateau":
-        scheduler = ReduceLROnPlateau(optimizer, "min", verbose=True)
+        scheduler = ReduceLROnPlateau(optimizer, "min", verbose=True, patience=train_cfg.patience)
     elif train_cfg.lr_scheduler == "cosine":
-        scheduler = CosineAnnealingLR(optimizer, T_max=train_cfg.max_epochs, verbose=True)
+        scheduler = CosineAnnealingLR(optimizer, T_max=train_cfg.max_epochs, eta_min=0.00000001)
     elif train_cfg.lr_scheduler == "cosine_warm":
         scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=30, verbose=True)
     logger.info(f"Using learning rate sheduler: {train_cfg.lr_scheduler}")
@@ -178,6 +180,7 @@ def train(train_cfg):
             label_mask = data[3].to(device)
             #last_period = data[4].to(device)
             freq_int = data[4].to(device)
+            freq_str_arr = np.expand_dims(np.array(data[5]), axis=1)
 
             if train_cfg.seasonal_init:
                 last_period = sample.shape[1]-freq_int
@@ -191,7 +194,7 @@ def train(train_cfg):
                 sample = torch.div(sample, max_scale)
                 sample[torch.isnan(sample)] = 0.0
 
-            forecast = model(sample, sample_mask, last_period)
+            forecast = model(sample, sample_mask, last_period, freq_str_arr)
 
             if train_cfg.scale:
                 forecast = torch.mul(forecast, max_scale)
@@ -225,18 +228,20 @@ def train(train_cfg):
                 label_mask = data[3].to(device)
                 #last_period = data[4].to(device)
                 freq_int = data[4].to(device)
+                freq_str_arr = np.expand_dims(np.array(data[5]), axis=1)
 
                 if train_cfg.seasonal_init:
                     last_period = sample.shape[1]-freq_int
                 else:
-                    last_period = torch.tensor(sample.shape[1]-1).repeat(sample.shape[0])
+                    last_period = torch.tensor(sample.shape[1]-1).repeat(sample.shape[0]).to(device)
 
                 if train_cfg.scale:
                     max_scale = torch.max(sample, 1).values.unsqueeze(1)
                     sample = torch.div(sample, max_scale)
                     sample[torch.isnan(sample)] = 0.0
 
-                forecast = model(sample, sample_mask, last_period)
+                forecast = model(sample, sample_mask, last_period, freq_str_arr)
+                #forecast = model(sample, sample_mask, last_period)
 
                 if train_cfg.scale:
                     forecast = torch.mul(forecast, max_scale)
@@ -287,15 +292,18 @@ def train(train_cfg):
                 logger.info(f"Epoch {ep:<5d} [Avg. Loss, Loss]: [{running_loss / train_cfg.log_freq :.4f}, {epoch_loss / batches_non_inf:.4f}], {early_stop_count}")
                 running_loss = 0.0
     
+    preds, df_preds = predict_M4(model=model, scale=train_cfg.scale, seasonal_init=train_cfg.seasonal_init, encode_frequencies=train_cfg.model_params_mlp.encode_frequencies)
+    res = score_M4(predictions=preds)
+    logger.info(res)
     # save model
     filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".pt")
     torch.save(model.state_dict(), filename)
     #filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".yml")
     #train_cfg.to_yaml(filename)
     # vv comment out
-    preds, df_preds = predict_M4(model=model, scale=train_cfg.scale, seasonal_init=train_cfg.seasonal_init)
-    res = score_M4(predictions=preds)
-    logger.info(res)
+    #preds, df_preds = predict_M4(model=model, scale=train_cfg.scale, seasonal_init=train_cfg.seasonal_init)
+    #res = score_M4(predictions=preds)
+    #logger.info(res)
     logger.info("Finished training!")
 
     if train_cfg.swa:
