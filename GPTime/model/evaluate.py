@@ -33,7 +33,7 @@ def evaluate(evaluate_cfg):
         model.to(device)
         model.eval()
 
-        preds, df_preds = predict_M4(model=model, scale=evaluate_cfg.scale, seasonal_init=evaluate_cfg.seasonal_init, val_set=evaluate_cfg.val_set, encode_frequencies=evaluate_cfg.encode_frequencies)
+        preds, df_preds = predict_M4(model=model, scale=evaluate_cfg.scale, seasonal_init=evaluate_cfg.seasonal_init, val_set=evaluate_cfg.val_set, encode_frequencies=evaluate_cfg.model_params_mlp.encode_frequencies)
         result_file = os.path.join(evaluate_cfg.result_path, "result.csv")
         logger.info(f"results fiel: {result_file}")
         d = score_M4(preds, df_results_name=result_file, val=evaluate_cfg.val_set)

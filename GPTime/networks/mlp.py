@@ -50,6 +50,7 @@ class MLP(torch.nn.Module):
             "W": np.array([0,0,0,1,0,0]),
             "D": np.array([0,0,0,0,1,0]),
             "H": np.array([0,0,0,0,0,1]),
+            "O": np.array([0,0,0,0,0,0]),
             "yearly": np.array([1,0,0,0,0,0]),
             "quarterly": np.array([0,1,0,0,0,0]),
             "monthly": np.array([0,0,1,0,0,0]),
@@ -76,6 +77,7 @@ class MLP(torch.nn.Module):
         logger.debug(f"Input size of model: {in_features}.")
         logger.debug(f"Number of layers: {num_layers}.")
         logger.debug(f"Number of hidden units: {n_hidden}.")
+        logger.debug(f"Using frequency encoding: {encode_frequencies}")
 
     def forward(self, x, mask, last_period, freq_str_arr):
         naive = torch.gather(x, 1, last_period.unsqueeze(1))

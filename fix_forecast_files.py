@@ -4,7 +4,7 @@ import pandas as pd
 
 
 def fix_forecasts():
-    folder_path = "storage/experiments/almost_global_test4/"
+    folder_path = "storage/experiments/global_1024_10_test_no_res_skip_encode_scale_alternative_ensemble/"
     forecast_fnames = glob.glob(folder_path + "**/forecast.csv")
     freq_order = {"Y": 1, "Q": 2, "M": 3, "W": 4, "D": 5, "H": 6}
     for fname in forecast_fnames:
@@ -18,5 +18,6 @@ def fix_forecasts():
         new_path = "/".join(fname.split("/")[:-1]) + "/nbeats_forecast.csv"
         df.to_csv(new_path, index=False)
     print("Done.")
+
 if __name__ == "__main__":
     fix_forecasts()

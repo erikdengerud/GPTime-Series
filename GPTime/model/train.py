@@ -190,7 +190,10 @@ def train(train_cfg):
             optimizer.zero_grad()
 
             if train_cfg.scale:
-                max_scale = torch.max(sample, 1).values.unsqueeze(1)                                                                                                                                    
+                max_scale = torch.max(sample, 1).values.unsqueeze(1)
+                if len((max_scale == 0).nonzero()) > 0:
+                    zero_idx = (max_scale==0).nonzero()
+                    max_scale[zero_idx[:,0], zero_idx[:,1]] = 1.0
                 sample = torch.div(sample, max_scale)
                 sample[torch.isnan(sample)] = 0.0
 

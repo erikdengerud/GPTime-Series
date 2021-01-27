@@ -15,7 +15,7 @@ def create_ensemble_slurm(slurm_jobs_folder, ensemble_name, model_name, cfg_path
         f.write("#!/bin/sh\n")
         f.write(f"#SBATCH --partition=GPUQ\n")
         f.write(f"#SBATCH --account=share-ie-imf\n")
-        f.write(f"#SBATCH --time=3:00:00\n") # the box config parses to minutes
+        f.write(f"#SBATCH --time=6:00:00\n") # the box config parses to minutes
         f.write(f"#SBATCH --nodes=1\n")
         f.write(f"#SBATCH --mem=16000\n")
         f.write(f"#SBATCH --job-name={ensemble_name}\n")
@@ -100,6 +100,7 @@ def create_ensemble(cfg_path):
             # set all frequencies to True
             for f in train_cfg.dataset_params.frequencies:
                 train_cfg.dataset_params.frequencies[f] = True
+            train_cfg.dataset_params.frequencies["O"] = False
             # save the cfg file
             train_cfg.to_yaml(ensemble_member_cfg_path)
 

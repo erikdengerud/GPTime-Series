@@ -52,15 +52,19 @@ def find_frequency(freq_str:str) -> Tuple[str,str]:
         freq_short = "O"
     return freq, freq_short
 
-def process_ts(ts:Dict) -> Tuple[List[Dict], bool, str]:
+def process_ts(ts:Dict, min_lengths:Dict, remove_zero:bool=True, remove_zero_treshold:float=0.8, num_distinct:int=5) -> Tuple[List[Dict], bool, str]:
     """
     Processing time series. Splitting by missing values and keeping sub series if the sub series are long enough.
     """
     sub_lists = []
     curr = []
     contains_na = False
+    not_enough_distinct = False
+    too_many_zeros = False
+
     for obs in ts["observations"]:
         if obs["value"] != '.':
+            obs["value"] = float(obs["value"])
             curr.append(obs)
         else:
             sub_lists.append(curr)
@@ -70,63 +74,150 @@ def process_ts(ts:Dict) -> Tuple[List[Dict], bool, str]:
 
     freq, freq_short = find_frequency(ts["frequency"])
 
-    # valid ts
-    sub_lists = [l for l in sub_lists if len(l) > cfg.preprocess.ts.min_length[freq]]
+    if contains_na:
+        new_jsons = []
+    else:
+        new_ts = {
+            "frequency": freq_short,
+            "observations": curr,
+            }
+        new_jsons = [new_ts]
+    return new_jsons, contains_na, freq, too_many_zeros, not_enough_distinct 
+
     """
+    # Check if the time series are valid
+    # THis is kinda wrong because we need to use l["value"] when checking for stuff.
+    sub_lists = [l for l in sub_lists if len(l) > min_lengths[freq]]
+
     valid = []
     for l in sub_lists:
-        if len(l) > cfg.preprocess.ts.min_length[freq]:
-            if cfg.preprocess.remove.zero:
-                if np.count_nonzero(np.array(l)) < cfg.preprocess.remove.zero_treshold * len(l):
-                    if cfg.preprocess.constant:
-                    vals = np.array(l)
-                    if len(vals[vals==np.mean(vals)]) == len(vals):
-                        valid.append(l)
-            else:
-                if cfg.preprocess.constant:
-                    vals = np.array(l)
-                    if len(vals[vals==np.mean(vals)]) == len(vals):
-                        valid.append(l)
-                else:
+        if remove_zero:
+            if np.count_nonzero(np.array(l)) < remove_zero_treshold * len(l):
+                vals = np.array(l)
+                if len(np.unique(vals)) > num_distinct:
                     valid.append(l)
-    """
-    new_jsons = []
-    
+                else:
+                    not_enough_distinct = True
+            else:
+                too_many_zeros = True
+        else:
+            vals = np.array(l)
+            if len(np.unique(vals)) > num_distinct:
+                valid.append(l)
+            else:
+                not_enough_distinct = True
+
+    new_jsons = [] 
     for l in sub_lists:
         new_ts = {
             "frequency" : freq_short,
-            "observations" : l,
+            "observations" : list(l),
         }
         new_jsons.append(new_ts)
 
-    return new_jsons, contains_na, freq
+    return new_jsons, contains_na, freq, too_many_zeros, not_enough_distinct
+    """
 
-def preprocess_FRED(account_url:str, container_name:str, dates=False)->None:
+#def preprocess_FRED(account_url:str, container_name:str, dates=False)->None:
+def preprocess_FRED(cfg_preprocess)->None:
     """
     Preprocess the FRED dataset.
     """
-    # Azure clients
-    container_client = ContainerClient(account_url=account_url, container_name=container_name)
-    all_blobs = container_client.list_blobs()
-    raw_blob_names = [b["name"] for b in all_blobs if "raw" in b["name"]]
-
-    list_json = []
     num_files_written = 0
     num_ts = 0
     num_contains_na = 0
     num_ts_processed = 0
+    num_not_enough_distinct = 0
+    num_too_many_zeros = 0
     all_frequencies:Dict= {}
+    list_json = []
     
+    dir_names = glob.glob(os.path.join(cfg_preprocess.raw_data_folder, "*")) 
+    for dir_name in dir_names:
+        json_fnames = glob.glob(os.path.join(dir_name, "*"))
+        for i, json_fname in enumerate(json_fnames):
+            with open(json_fname) as json_file:
+                json_data = json.load(json_file)
+                json_file.close()
+            for ts in json_data:
+        
+                try:
+                    processed_jsons, contains_na, freq, too_many_zeros, not_enough_distinct = process_ts(
+                        ts, 
+                        cfg_preprocess.min_lengths,
+                        remove_zero=cfg_preprocess.remove_zero,
+                        remove_zero_treshold=cfg_preprocess.zero_treshold,
+                        num_distinct=cfg_preprocess.num_distinct,
+                        )
+                    num_ts += len(processed_jsons)
+                    num_contains_na += contains_na
+                    #num_not_enough_distinct += not_enough_distinct
+                    #num_too_many_zeros += too_many_zeros
+                    num_ts_processed += 1
+                    if not contains_na:
+                        if freq in all_frequencies.keys():
+                            all_frequencies[freq] += 1
+                        else:
+                            all_frequencies[freq] = 1
+
+                    list_json.extend(processed_jsons)
+
+                    if len(list_json) > cfg_preprocess.samples_per_json:
+                        filename = f"processed_{num_files_written:>06}.json"
+                        if num_files_written % cfg_preprocess.files_per_folder == 0:
+                            curr_dir = f"dir{num_files_written // cfg.source.files_per_folder :04d}/"
+                            os.makedirs(os.path.join(cfg_preprocess.path.FRED, curr_dir), exist_ok=True)
+                        with open(os.path.join(*[cfg_preprocess.path.FRED, curr_dir, filename]), "w") as fp:
+                            json.dump(list_json, fp, sort_keys=True, indent=4, separators=(",", ": "))
+                            fp.close()
+
+                        num_files_written += 1
+                        list_json = []
+                except Exception as e:
+                    logger.warning(e)
+
+            if i % 100 == 0:
+                logger.info(f"Processed {i/len(json_fnames)*100:.2f}% of files in this folder.")
+                logger.info(f"Currently have {num_ts} time series")
+                logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
+
+
+    filename = f"processed_{num_files_written:>06}.json"
+    curr_dir = f"dir{num_files_written // cfg.source.files_per_folder :04d}/"
+    os.makedirs(os.path.join(cfg_preprocess.path.FRED, curr_dir), exist_ok=True)
+    with open(os.path.join(*[cfg_preprocess.path.FRED, curr_dir, filename]), "w") as fp:
+        json.dump(list_json, fp, sort_keys=True, indent=4, separators=(",", ": "))
+        fp.close()
+
+    logger.info(f"Processed {num_ts_processed} files")
+    logger.info(f"Currently have {num_ts} time series")
+    logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
+    logger.info(f"Of the {num_ts_processed} time sereis processed, {num_too_many_zeros/num_ts_processed*100:.2f}% had too many zeros.")
+    logger.info(f"Of the {num_ts_processed} time series processed, {num_not_enough_distinct/num_ts_processed*100:.2f}% did not have enough distinct values")
+    logger.info("Proportion of frequencies: ")
+    tot_freq = sum(all_frequencies.values())
+    for k, v in all_frequencies.items():
+        logger.info(f"{k} : {v/tot_freq*100:.2f}")
+    logger.info("Done preprocessing FRED.")
+    """
     for i, bname in enumerate(raw_blob_names):
         print(f"Name of blob: {bname}")
-        blob_client = BlobClient(account_url=account_url, container_name=container_name, blob_name=bname)
+        blob_client = BlobClient(account_url=cfg_preprocess.account_url, container_name=cfg_preprocess.container_name, blob_name=bname)
         blob_json = json.loads(blob_client.download_blob().readall())
         
         for ts in blob_json:
             try:
-                processed_jsons, contains_na, freq = process_ts(ts)
+                processed_jsons, contains_na, freq, too_many_zeros, not_enough_distinct = process_ts(
+                    ts, 
+                    cfg_preprocess.min_lengths,
+                    remove_zero=cfg_preprocess.remove_zero,
+                    remove_zero_treshold=cfg_preprocess.zero_treshold,
+                    num_distinct=cfg_preprocess.num_distinct,
+                    )
                 num_ts += len(processed_jsons)
                 num_contains_na += contains_na
+                num_not_enough_distinct += not_enough_distinct
+                num_too_many_zeros += too_many_zeros
                 num_ts_processed += 1
                 if freq in all_frequencies.keys():
                     all_frequencies[freq] += 1
@@ -137,12 +228,12 @@ def preprocess_FRED(account_url:str, container_name:str, dates=False)->None:
                 #   list_jsons.extend(processed_jsons)
                 list_json.extend(processed_jsons)
 
-                if len(list_json) > cfg.source.samples_per_json:
+                if len(list_json) > cfg_preprocess.samples_per_json:
                     filename = f"processed_{num_files_written:>06}.json"
-                    if num_files_written % cfg.source.files_per_folder == 0:
+                    if num_files_written % cfg_preprocess.files_per_folder == 0:
                         curr_dir = f"dir{num_files_written // cfg.source.files_per_folder :04d}/"
-                        os.makedirs(os.path.join(cfg.preprocess.path.FRED, curr_dir), exist_ok=True)
-                    with open(os.path.join(*[cfg.preprocess.path.FRED, curr_dir, filename]), "w") as fp:
+                        os.makedirs(os.path.join(cfg_preprocess.path.FRED, curr_dir), exist_ok=True)
+                    with open(os.path.join(*[cfg_preprocess.path.FRED, curr_dir, filename]), "w") as fp:
                         json.dump(list_json, fp, sort_keys=True, indent=4, separators=(",", ": "))
                         fp.close()
 
@@ -156,23 +247,27 @@ def preprocess_FRED(account_url:str, container_name:str, dates=False)->None:
             logger.info(f"Currently have {num_ts} time series")
             logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
 
+        break
+
     filename = f"processed_{num_files_written:>06}.json"
-    if num_files_written % cfg.source.files_per_folder == 0:
+    if num_files_written % cfg_preprocess.files_per_folder == 0:
         curr_dir = f"dir{num_files_written // cfg.source.files_per_folder :04d}/"
-        os.makedirs(os.path.join(cfg.preprocess.path.FRED, curr_dir), exist_ok=True)
-    with open(os.path.join(*[cfg.preprocess.path.FRED, curr_dir, filename]), "w") as fp:
+        os.makedirs(os.path.join(cfg_preprocess.path.FRED, curr_dir), exist_ok=True)
+    with open(os.path.join(*[cfg_preprocess.path.FRED, curr_dir, filename]), "w") as fp:
         json.dump(list_json, fp, sort_keys=True, indent=4, separators=(",", ": "))
         fp.close()
 
     logger.info(f"Processed {num_ts_processed} files")
     logger.info(f"Currently have {num_ts} time series")
     logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
+    logger.info(f"Of the {num_ts_processed} time sereis processed, {num_too_many_zeros/num_ts_processed*100:.2f}% had too many zeros.")
+    logger.info(f"Of the {num_ts_processed} time series processed, {num_not_enough_distinct/num_ts_processed*100:.2f}% did not have enough distinct values")
     logger.info("Proportion of frequencies: ")
     tot_freq = sum(all_frequencies.values())
     for k, v in all_frequencies.items():
         logger.info(f"{k} : {v/tot_freq*100:.2f}")
     logger.info("Done preprocessing FRED.")
-
+    """
 
 
 if __name__ == "__main__":

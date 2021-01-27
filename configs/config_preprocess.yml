@@ -1,17 +1,25 @@
+use_local: True
+raw_data_folder: GPTime/data/raw/FRED
+account_url: https://tsdatasets.blob.core.windows.net/
+container_name: fred
+
+samples_per_json: 2000
+files_per_folder: 100
+
 path:
-  #FRED: /work/erikde/data/processed/FRED
+  FRED: GPTime/data/processed/FRED_nbeats/
   #FRED_small: /work/erikde/data/processed/FRED_small
   M4: /work/erikde/data/processed/M4/
-ts:
-  min_length:
-    yearly: 5
-    quarterly: 10
-    monthly: 26
-    weekly: 52
-    daily: 16
-    hourly: 50
-    other: 10
-remove:
-  zero: False
-  zero_treshold: 0.8
-  constant: False 
+
+min_lengths:
+    yearly: 19
+    quarterly: 24
+    monthly: 60
+    weekly: 93
+    daily: 107
+    hourly: 748
+    other: 50
+
+remove_zero: True
+zero_treshold: 0.8
+num_distinct: 5

@@ -11,6 +11,7 @@ Write dummy preprocessed data for predict.
 import numpy as np
 import logging
 import sys
+from box import Box
 
 sys.path.append("")
 from GPTime.config import cfg
@@ -21,13 +22,13 @@ from GPTime.preprocess.preprocess_FRED import preprocess_FRED
 from GPTime.preprocess.preprocess_M4 import preprocess_M4
 
 
-def preprocess() -> None:
+def preprocess(cfg_preprocess) -> None:
     """
     Preprocess raw data.
     """
-
-    # preprocess_FRED()
-    preprocess_M4()
+    
+    preprocess_FRED(cfg_preprocess)
+    #preprocess_M4()
 
     logger.debug("Preprocess ran.")
 
