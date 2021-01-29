@@ -59,8 +59,8 @@ def process_ts(ts:Dict, min_lengths:Dict, remove_zero:bool=True, remove_zero_tre
     sub_lists = []
     curr = []
     contains_na = False
-    not_enough_distinct = False
-    too_many_zeros = False
+    not_enough_distinct = 0
+    too_many_zeros = 0
 
     for obs in ts["observations"]:
         if obs["value"] != '.':
@@ -74,6 +74,7 @@ def process_ts(ts:Dict, min_lengths:Dict, remove_zero:bool=True, remove_zero_tre
 
     freq, freq_short = find_frequency(ts["frequency"])
 
+    """
     if contains_na:
         new_jsons = []
     else:
@@ -96,16 +97,16 @@ def process_ts(ts:Dict, min_lengths:Dict, remove_zero:bool=True, remove_zero_tre
                 vals = np.array(l)
                 if len(np.unique(vals)) > num_distinct:
                     valid.append(l)
-                else:
-                    not_enough_distinct = True
-            else:
-                too_many_zeros = True
+                #else:
+                #    not_enough_distinct = True
+            #else:
+            #    too_many_zeros = True
         else:
             vals = np.array(l)
             if len(np.unique(vals)) > num_distinct:
                 valid.append(l)
-            else:
-                not_enough_distinct = True
+            #else:
+            #    not_enough_distinct = True
 
     new_jsons = [] 
     for l in sub_lists:
@@ -116,7 +117,6 @@ def process_ts(ts:Dict, min_lengths:Dict, remove_zero:bool=True, remove_zero_tre
         new_jsons.append(new_ts)
 
     return new_jsons, contains_na, freq, too_many_zeros, not_enough_distinct
-    """
 
 #def preprocess_FRED(account_url:str, container_name:str, dates=False)->None:
 def preprocess_FRED(cfg_preprocess)->None:
@@ -134,6 +134,7 @@ def preprocess_FRED(cfg_preprocess)->None:
     
     dir_names = glob.glob(os.path.join(cfg_preprocess.raw_data_folder, "*")) 
     for dir_name in dir_names:
+        logger.info(f"Preprocessing directory: {dir_name}")
         json_fnames = glob.glob(os.path.join(dir_name, "*"))
         for i, json_fname in enumerate(json_fnames):
             with open(json_fname) as json_file:
@@ -156,9 +157,9 @@ def preprocess_FRED(cfg_preprocess)->None:
                     num_ts_processed += 1
                     if not contains_na:
                         if freq in all_frequencies.keys():
-                            all_frequencies[freq] += 1
+                            all_frequencies[freq] += len(processed_jsons)
                         else:
-                            all_frequencies[freq] = 1
+                            all_frequencies[freq] = len(processed_jsons)
 
                     list_json.extend(processed_jsons)
 
@@ -176,10 +177,8 @@ def preprocess_FRED(cfg_preprocess)->None:
                 except Exception as e:
                     logger.warning(e)
 
-            if i % 100 == 0:
-                logger.info(f"Processed {i/len(json_fnames)*100:.2f}% of files in this folder.")
-                logger.info(f"Currently have {num_ts} time series")
-                logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
+        logger.info(f"Currently have {num_ts} time series")
+        logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
 
 
     filename = f"processed_{num_files_written:>06}.json"
@@ -192,8 +191,6 @@ def preprocess_FRED(cfg_preprocess)->None:
     logger.info(f"Processed {num_ts_processed} files")
     logger.info(f"Currently have {num_ts} time series")
     logger.info(f"Of the {num_ts_processed} time series processed, {num_contains_na/num_ts_processed*100:.2f}% contains missing values.")
-    logger.info(f"Of the {num_ts_processed} time sereis processed, {num_too_many_zeros/num_ts_processed*100:.2f}% had too many zeros.")
-    logger.info(f"Of the {num_ts_processed} time series processed, {num_not_enough_distinct/num_ts_processed*100:.2f}% did not have enough distinct values")
     logger.info("Proportion of frequencies: ")
     tot_freq = sum(all_frequencies.values())
     for k, v in all_frequencies.items():

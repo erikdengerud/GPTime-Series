@@ -139,6 +139,8 @@ def create_ensemble(cfg_path):
         evaluate_configs_list = []
         for member in product(ensemble_cfg.loss_functions, ensemble_cfg.forecast_inits, ensemble_cfg.lookbacks):
             for freq in train_cfg.dataset_params.frequencies:
+                if freq == "H":
+                    break
                 # create model name and paths
                 model_name = freq
                 ensemble_member_name = f"{member[0]}-{member[1]}-{member[2]}"

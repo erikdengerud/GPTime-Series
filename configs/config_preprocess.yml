@@ -7,7 +7,7 @@ samples_per_json: 2000
 files_per_folder: 100
 
 path:
-  FRED: GPTime/data/processed/FRED_nbeats/
+  FRED: GPTime/data/processed/FRED3/
   #FRED_small: /work/erikde/data/processed/FRED_small
   M4: /work/erikde/data/processed/M4/
 
@@ -21,5 +21,5 @@ min_lengths:
     other: 50
 
 remove_zero: True
-zero_treshold: 0.8
+zero_treshold: 0.5
 num_distinct: 5

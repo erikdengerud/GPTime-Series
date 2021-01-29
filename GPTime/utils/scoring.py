@@ -166,6 +166,9 @@ def score_M4(
     else:
         all_test_files = glob.glob(cfg.path.m4_test + "*")
         all_train_files = glob.glob(cfg.path.m4_train + "*")
+    # Removing hourly for the zero-shot part
+    all_train_files = [fname for fname in all_train_files if "hourly" not in fname.lower()]
+    all_test_files = [fname for fname in all_test_files if "hourly" not in fname.lower()]
     all_test_files.sort()
     all_train_files.sort()
     crt_pred_index = 0

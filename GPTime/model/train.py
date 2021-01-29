@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import random_split
 from torch.utils.tensorboard import SummaryWriter
 import os
+import copy
 import numpy as np
 import pandas as pd
 import time
@@ -19,6 +20,7 @@ from GPTime.utils.scaling import MASEScaler
 
 from torch.optim.lr_scheduler import ReduceLROnPlateau, CosineAnnealingLR, CosineAnnealingWarmRestarts # MultiplicativeLR
 #from torch.optim.swa_utils import AveragedModel, SWALR
+from torch.utils.data import Subset, ConcatDataset
 
 
 logger = logging.getLogger(__name__)
@@ -98,71 +100,128 @@ def train(train_cfg):
 
     # Dataset
     # TODO: log lookback and loss function
-    
-    if train_cfg.val:
-        logger.info("Using a validation split.")
-        assert train_cfg.h_val + train_cfg.v_val < 2, "Horizontal and vertical validation split both selected!"
-        # Make a train and val set
-        if train_cfg.v_val:
-            # make a horisontal train val split
+    if not train_cfg.more_data:
+        if train_cfg.val:
+            logger.info("Using a validation split.")
+            assert train_cfg.h_val + train_cfg.v_val < 2, "Horizontal and vertical validation split both selected!"
+            # Make a train and val set
+            if train_cfg.v_val:
+                # make a horisontal train val split
+                ds_train = Dataset(
+                    memory=model.memory,
+                    convolutions=True if Model.__name__=="TCN" else False,
+                    ds_type="train",
+                    **train_cfg.dataset_params
+                    )
+
+                ds_val = Dataset(
+                    memory=model.memory,
+                    convolutions=True if Model.__name__=="TCN" else False,
+                    ds_type="val",
+                    **train_cfg.dataset_params
+                    )
+
+            elif train_cfg.h_val:
+                # make a vertical train val split
+                # Proportion of ds to use
+                assert train_cfg.proportion <= 1 and train_cfg.proportion > 0, "Proportion of dataset not between 0 and 1."
+                proportion_length = int(ds.__len__() * train_cfg.proportion)
+                ds_use, _ = random_split(dataset=ds, lengths=[proportion_length, ds.__len__() - proportion_length])
+
+                train_length = int(ds_use.__len__() * train_cfg.train_set_size)
+                val_length = ds_use.__len__() - train_length
+
+                train_ds, val_ds = random_split(
+                    dataset=ds_use, 
+                    lengths=[train_length, val_length],
+                    #generator=torch.torch.Generator()
+                )
+                logger.info(f"Using {train_cfg.proportion * 100}% of the available dataset.")
+                logger.info(f"Using frequencies: {[freq for freq, true_false in train_cfg.dataset_params.frequencies.items() if true_false]}")
+                logger.info(f"Train size: {train_ds.__len__()}, Val size: {val_ds.__len__()}")
+
+                # Dataloader
+                train_loader = DataLoader(train_ds, **train_cfg.dataloader_params)
+                val_loader = DataLoader(val_ds, **train_cfg.dataloader_params)
+                test_loader = DataLoader(train_ds, **train_cfg.dataloader_params)
+
+            else:
+                # Not specified
+                logger.warning("Type of train val split not specified!")
+                raise Warning
+        else:
+            logger.info("Not using a validation set. Training on the full dataset.")
             ds_train = Dataset(
                 memory=model.memory,
                 convolutions=True if Model.__name__=="TCN" else False,
-                ds_type="train",
+                ds_type="full",
                 **train_cfg.dataset_params
-                )
-
-            ds_val = Dataset(
-                memory=model.memory,
-                convolutions=True if Model.__name__=="TCN" else False,
-                ds_type="val",
-                **train_cfg.dataset_params
-                )
-
-        elif train_cfg.h_val:
-            # make a vertical train val split
-            # Proportion of ds to use
-            assert train_cfg.proportion <= 1 and train_cfg.proportion > 0, "Proportion of dataset not between 0 and 1."
-            proportion_length = int(ds.__len__() * train_cfg.proportion)
-            ds_use, _ = random_split(dataset=ds, lengths=[proportion_length, ds.__len__() - proportion_length])
-
-            train_length = int(ds_use.__len__() * train_cfg.train_set_size)
-            val_length = ds_use.__len__() - train_length
-
-            train_ds, val_ds = random_split(
-                dataset=ds_use, 
-                lengths=[train_length, val_length],
-                #generator=torch.torch.Generator()
             )
-            logger.info(f"Using {train_cfg.proportion * 100}% of the available dataset.")
-            logger.info(f"Using frequencies: {[freq for freq, true_false in train_cfg.dataset_params.frequencies.items() if true_false]}")
-            logger.info(f"Train size: {train_ds.__len__()}, Val size: {val_ds.__len__()}")
 
-            # Dataloader
-            train_loader = DataLoader(train_ds, **train_cfg.dataloader_params)
-            val_loader = DataLoader(val_ds, **train_cfg.dataloader_params)
-            test_loader = DataLoader(train_ds, **train_cfg.dataloader_params)
+        logger.info(f"seasonal init: {train_cfg.seasonal_init}")
 
-        else:
-            # Not specified
-            logger.warning("Type of train val split not specified!")
-            raise Warning
+        train_loader = DataLoader(dataset=ds_train, **train_cfg.dataloader_params)
+        if train_cfg.val:
+            val_loader = DataLoader(dataset=ds_val, **train_cfg.dataloader_params)
+        logger.info("Training model.")
+        logger.info(f"Length of dataset: {len(ds_train)}")
+
     else:
-        logger.info("Not using a validation set. Training on the full dataset.")
-        ds_train = Dataset(
-            memory=model.memory,
-            convolutions=True if Model.__name__=="TCN" else False,
-            ds_type="full",
-            **train_cfg.dataset_params
-        )
-
-    logger.info(f"seasonal init: {train_cfg.seasonal_init}")
-
-    train_loader = DataLoader(dataset=ds_train, batch_size=1024)
-    if train_cfg.val:
-        val_loader = DataLoader(dataset=ds_val, batch_size=1024)
-    logger.info("Training model.")
-    logger.info(f"Length of dataset: {len(ds_train)}")
+        # Make one dataset for each frequency
+        logger.debug(f"proportion used: {train_cfg.proportion}")
+        datasets = []
+        dataset_paths = {}
+        m4_path_dict = {}
+        for ds_name in train_cfg.dataset_params.dataset_paths.keys():
+            if ds_name != "M4":
+                dataset_paths[ds_name] = train_cfg.dataset_params.dataset_paths[ds_name]
+            else:
+                m4_path_dict[ds_name] = train_cfg.dataset_params.dataset_paths[ds_name]
+        logger.debug(f"dataset_paths: {dataset_paths}")
+        for freq in train_cfg.dataset_params.frequencies.keys():
+            if train_cfg.dataset_params.frequencies[freq]:
+                #logger.debug(freq)
+                use_frequencies = {}
+                for freq_set in train_cfg.dataset_params.frequencies.keys():
+                    if freq_set == freq:
+                        use_frequencies[freq_set] = True
+                    else:
+                        use_frequencies[freq_set] = False
+                tmp_params = copy.copy(train_cfg.dataset_params)
+                tmp_params.frequencies = use_frequencies
+                tmp_params.dataset_paths = dataset_paths
+                ds_freq = Dataset(
+                    memory=model.memory,
+                    convolutions=False,
+                    **tmp_params,
+                    )
+                datasets.append(ds_freq)
+        prop_datasets = []
+        for ds in datasets:
+            split = int(len(ds)*train_cfg.proportion)
+            #logger.debug(f"len(ds): {len(ds)}")
+            #logger.debug(f"split idx: {split}")
+            indices = list(range(len(ds)))
+            np.random.seed(1729)
+            np.random.shuffle(indices)
+            keep_indices = indices[:split]
+            #logger.debug(f"len(keep_indices): {len(keep_indices)}")
+            prop_ds = Subset(dataset=ds, indices=keep_indices)
+            #logger.debug(f"len(prop_ds): {len(prop_ds)}")
+            prop_datasets.append(prop_ds)
+        if len(m4_path_dict):
+            tmp_params = copy.copy(train_cfg.dataset_params)
+            tmp_params.dataset_paths = m4_path_dict
+            m4_ds = Dataset(
+                memory=model.memory,
+                convolutions=False,
+                **tmp_params,
+                )
+            prop_datasets.append(m4_ds)
+        concat_ds = ConcatDataset(prop_datasets)
+ 
+        logger.debug(f"len(concat_ds): {len(concat_ds)}")
+        train_loader = DataLoader(concat_ds, **train_cfg.dataloader_params)
 
     running_loss = 0.0
     val_running_loss = 0.0
