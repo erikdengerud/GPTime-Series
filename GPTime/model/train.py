@@ -359,6 +359,7 @@ def train(train_cfg):
     logger.info(res)
     # save model
     filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".pt")
+    os.makedirs(os.path.join(train_cfg.model_save_path, train_cfg.name))
     torch.save(model.state_dict(), filename)
     #filename = os.path.join(train_cfg.model_save_path, train_cfg.name + ".yml")
     #train_cfg.to_yaml(filename)

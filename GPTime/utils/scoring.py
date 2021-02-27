@@ -61,7 +61,7 @@ def multi_step_predict(
     """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     memory = train_data.shape[1]
-    logger.debug(f"frequencies.shape: {frequencies.shape}")
+    #logger.debug(f"frequencies.shape: {frequencies.shape}")
     if np.max(frequencies) > memory:
         frequencies = np.array([1 for _ in range(train_data.shape[0])])
     freq_str_arr = np.expand_dims(np.repeat(period_str, train_data.shape[0]), axis=1)
@@ -93,16 +93,16 @@ def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, va
         all_train_files = glob.glob(cfg.path.m4_train + "*")
     all_train_files.sort()
     
-    logger.info(f"freq is {freq}")
+    #logger.info(f"freq is {freq}")
     if freq is not None:
-        logger.info(f"Keeping requrency {freq}")
+        #logger.info(f"Keeping requrency {freq}")
         keep_files = []
         for fname in all_train_files:
             _, period_str = period_from_fname(fname=fname, period_dict=cfg.scoring.m4.periods)
             if period_str[0].lower() == freq.lower():
                 keep_files.append(fname)
         all_train_files = keep_files
-    logger.info(all_train_files)
+    #logger.info(all_train_files)
     assert len(all_train_files) > 0, f"Did not find data in {cfg.path.m4_train}"
     frames = []
     for fname in all_train_files:
@@ -144,13 +144,13 @@ def predict_M4(model: nn.Module, scale: bool=False, seasonal_init:bool=False, va
         #df.index.name = "id"
         frames.append(df)
         
-    logger.info("len of list of dfs: {len(frames)}")
+    #logger.info("len of list of dfs: {len(frames)}")
     df_all = pd.concat(frames, sort=False)
     df_all = df_all.set_index("id")
-    logger.info(df_all.head())
+    #logger.info(df_all.head())
     df_all.columns = [f"V{i}" for i in range(1, len(df_all.columns)+1)]
     predictions = df_all.values
-    logger.info("evaluate: shape: {df.shape}")
+    #logger.info("evaluate: shape: {df.shape}")
     return df_all.values, df_all
 
 
@@ -167,16 +167,16 @@ def score_M4(
         all_test_files = glob.glob(cfg.path.m4_test + "*")
         all_train_files = glob.glob(cfg.path.m4_train + "*")
     # Removing hourly for the zero-shot part
-    all_train_files = [fname for fname in all_train_files if "hourly" not in fname.lower()]
-    all_test_files = [fname for fname in all_test_files if "hourly" not in fname.lower()]
+    #all_train_files = [fname for fname in all_train_files if "hourly" not in fname.lower()]
+    #all_test_files = [fname for fname in all_test_files if "hourly" not in fname.lower()]
     all_test_files.sort()
     all_train_files.sort()
     crt_pred_index = 0
     tot_mase = 0.0
     tot_smape = 0.0
     for fname_train, fname_test in zip(all_train_files, all_test_files):
-        logger.info(fname_test)
-        logger.info(fname_train)
+        #logger.info(fname_test)
+        #logger.info(fname_train)
         df_train = pd.read_csv(fname_train, index_col=0)
         df_test = pd.read_csv(fname_test, index_col=0)
         period_num, period_str = period_from_fname(
@@ -187,7 +187,7 @@ def score_M4(
         Y = df_test.values[:, :horizon]
         index = crt_pred_index + Y.shape[0]
         predicted = predictions[crt_pred_index:index, :horizon]
-        logger.info(f"predicted.shape: {predicted.shape}")
+        #logger.info(f"predicted.shape: {predicted.shape}")
         
         assert np.sum(np.isnan(Y)) == 0, "NaNs in Y"
         assert np.sum(np.isnan(predicted)) == 0, f"NaNs in predictions: {np.where(np.isnan(predicted))}"

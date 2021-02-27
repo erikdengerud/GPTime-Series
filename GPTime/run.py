@@ -13,6 +13,7 @@ from GPTime.source.data_sourcing import source
 from GPTime.preprocess.preprocessing import preprocess
 from GPTime.model.train import train
 from GPTime.model.evaluate import evaluate
+from GPTime.model.finetune import finetune
 
 with open("GPTime/credentials.yml", "r") as ymlfile:
     credentials = Box(yaml.safe_load(ymlfile))
@@ -24,6 +25,7 @@ tasks = {
     "preprocess": preprocess,
     "train": train,
     "evaluate": evaluate,
+    "finetune": finetune,
 }
 logger = logging.getLogger(__name__)
 

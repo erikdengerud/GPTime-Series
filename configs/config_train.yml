@@ -1,14 +1,14 @@
 # Model name for saving etc
 name: test_name
 # Learning rate Scheduler
-lr_scheduler: #plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
-patience: 10
+lr_scheduler: plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
+patience: 20
 # Stochastic Weight Averaging
 swa: False
 
 # Train Loop
 max_epochs: 200
-early_stop_tenacity: 30
+early_stop_tenacity: 50
 log_freq: 5
 clip_gradients: True
 tensorboard_log_dir: GPTime/models/runs/
