@@ -4,7 +4,7 @@ result_path: /work/erikde
 predictions_path: /work/erikde
 
 results_path: GPTime/models/
-val_set: True
+val_set: False
 scale: False
 seasonal_init: False
 global_model: False
@@ -18,8 +18,8 @@ model_params_mlp:
   num_layers: 10
   n_hidden: 1024
   bias: True
-  residual: Vanilla
+  residual:
   res_block_size: 2
-  skip_connections: True
+  skip_connections: False
   dropout: 0.2
-  encode_frequencies: False
+  encode_frequencies: True

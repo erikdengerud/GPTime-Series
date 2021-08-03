@@ -1,7 +1,7 @@
 # Model name for saving etc
 name: test_name
 # Learning rate Scheduler
-lr_scheduler: plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
+lr_scheduler: #plateau #"multiplicative" # "plateau", "cosine", "cosine_warm"
 patience: 20
 # Stochastic Weight Averaging
 swa: False
@@ -12,10 +12,10 @@ early_stop_tenacity: 50
 log_freq: 5
 clip_gradients: True
 tensorboard_log_dir: GPTime/models/runs/
-model_save_path: /work/erikde/models
+model_save_path:
 
 # Dataset
-more_data: True
+more_data: False
 proportion: 1
 val: False
 h_val: False
@@ -25,9 +25,9 @@ dataset_name: "TSDataset"
 dataset_params:
   lookback: 4
   dataset_paths:
-    FRED: GPTime/data/processed/FRED3/
+    #FRED: GPTime/data/processed/FRED3/
     #FRED_small: GPTime/data/processed/FRED_small
-    #M4: GPTime/data/processed/M4
+    M4: GPTime/data/processed/M4
     #M4: /work/erikde/data/processed/M4/
     #FRED: /work/erikde/data/processed/FRED/
   frequencies:  
@@ -61,7 +61,7 @@ scaling:
 # Dataloader
 train_set_size: 0.75 # 0-1
 num_tests_per_ts: 1
-scale: True
+scale: False
 dataloader_module: "torch.utils.data"
 dataloader_name: "DataLoader"
 dataloader_params:
@@ -70,20 +70,20 @@ dataloader_params:
   num_workers: 4
 
 # Change model here
-seasonal_init: True
+seasonal_init: False
 model_module: "GPTime.networks.mlp"
 model_name: "MLP"
 model_params_mlp:
   in_features: 30
   out_features: 1
   num_layers: 10
-  n_hidden: 2048
+  n_hidden: 1024
   bias: True
-  residual: Vanilla
+  residual: None
   res_block_size: 4
-  skip_connections: True
+  skip_connections: False
   dropout: 0.2
-  encode_frequencies: False
+  encode_frequencies: True
 
 # Optimizer
 optimizer_module: "torch.optim"

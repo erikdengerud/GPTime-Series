@@ -22,9 +22,14 @@ def create_ensemble_slurm(slurm_jobs_folder, ensemble_name, model_name, cfg_path
         f.write(f"#SBATCH --output={ensemble_name}-{model_name}.out\n")
         f.write(f"#SBATCH --mail-user=eriko1306@gmail.com\n")
         f.write(f"#SBATCH --mail-type=ALL\n")
-        f.write(f"#SBATCH --gres=gpu:1\n")
+        f.write(f"#SBATCH --gres=gpu:P100:1\n")
 
-        f.write("module load GCC/8.3.0 CUDA/10.1.243 OpenMPI/3.1.4 PyTorch/1.3.1-Python-3.7.4\n")
+        #f.write("module load GCC/8.3.0 CUDA/10.1.243 OpenMPI/3.1.4 PyTorch/1.3.1-Python-3.7.4\n")
+        #f.write("module load OpenMPI/3.1.4-GCC-8.3.0\n")
+        #f.write("module swap OpenMPI/4.0.5-gcccuda-2020b OpenMPI/3.1.4-GCC-8.3.0\n")
+        #f.write("module swap Python/3.8.6-GCCcore-10.2.0 Python/3.7.4-GCCcore-8.3.0\n")
+        #f.write("module load Python/3.7.4-GCCcore-8.3.0\n")
+        f.write("module load PyTorch/1.7.1-fosscuda-2020b\n")
         f.write("source venv/bin/activate\n")
 
         f.write(f"python3 -m GPTime --task train --cfg_path {cfg_path}\n")

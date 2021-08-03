@@ -16,22 +16,40 @@ networks:
 scoring:
   owa:
     naive2:
+      #smape:
+      #  yearly: 16.342
+      #  quarterly: 11.012
+      #  monthly: 14.427
+      #  weekly: 9.161
+      #  daily: 3.045
+      #  hourly: 18.383
+      #  global: 13.564
+      #mase:
+      #  yearly: 3.974
+      #  quarterly: 1.371
+      #  monthly: 1.063
+      #  weekly: 2.777
+      #  daily: 3.278
+      #  hourly: 2.396
+      #  global: 1.912
+      #val set vv:
       smape:
-        yearly: 16.342
-        quarterly: 11.012
-        monthly: 14.427
-        weekly: 9.161
-        daily: 3.045
-        hourly: 18.383
-        global: 13.564
+        yearly: 19.251
+        quarterly: 11.247
+        monthly: 13.102
+        weekly: 9.196
+        daily: 2.778
+        hourly: 41.399
+        global: 13.738
       mase:
-        yearly: 3.974
-        quarterly: 1.371
-        monthly: 1.063
-        weekly: 2.777
-        daily: 3.278
-        hourly: 2.396
-        global: 1.912
+        yearly: 4.723
+        quarterly: 1.378
+        monthly: 1.036
+        weekly: 2.898
+        daily: 3.221
+        hourly: 11.532
+        global: 2.109
+
   metrics:
     mase: True
     smape: True

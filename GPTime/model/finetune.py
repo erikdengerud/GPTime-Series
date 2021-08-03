@@ -56,9 +56,11 @@ def finetune(finetune_cfg):
     logger.info(res)
     # set the out layer to a new layer, or last N layers. use require grad=True
     model.layers[-1] = nn.Linear(in_features=1024, out_features=1024)
+    #model.out_layer = nn.Linear(in_features=1024, out_features=1)
     model.out = nn.Linear(in_features=1024, out_features=1)
     model.double()
     model.to(device)
+    print(model)
     logger.info(
         f"Number of learnable parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
     )
@@ -67,6 +69,7 @@ def finetune(finetune_cfg):
     for param in model.parameters():
         if param.requires_grad:
             params_to_update.append(param)
+    print("len(params_to_update): ", len(params_to_update))
     optimizer = Optimizer(params_to_update, **finetune_cfg.optimizer_params)
 
     # Learning rate 
@@ -140,7 +143,8 @@ def finetune(finetune_cfg):
 
             if finetune_cfg.scale:
                 max_scale = torch.max(sample, 1).values.unsqueeze(1)
-                if len((max_scale == 0).nonzero()) > 0:
+                #if len((max_scale == 0).nonzero()) > 0:
+                if len(torch.nonzero(max_scale==0)) > 0:
                     zero_idx = (max_scale==0).nonzero()
                     max_scale[zero_idx[:,0], zero_idx[:,1]] = 1.0
                 sample = torch.div(sample, max_scale)

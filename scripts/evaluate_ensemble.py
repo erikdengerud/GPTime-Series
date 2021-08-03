@@ -19,7 +19,8 @@ def evaluate_ensemble(cfg_path):
     
     experiment_folder = os.path.join(ensemble_cfg.storage_folder, ensemble_cfg.ensemble_name)
     print(experiment_folder)
-    ensemble_members = glob.glob(os.path.join(*[experiment_folder, "**", "forecast.csv"]))
+    ensemble_members = glob.glob(os.path.join(*[experiment_folder, "**", "forecast_val.csv"]))
+    print(ensemble_members)
     ensemble_members = [memb for memb in ensemble_members if "seasonal" not in memb]
     print(ensemble_members)
     df_list = []
@@ -36,12 +37,12 @@ def evaluate_ensemble(cfg_path):
     
     print("scoring median")
     print(f"val_set: {ensemble_cfg.val_set}")
-    res_median = score_M4(predictions=preds_median, df_results_name=os.path.join(experiment_folder, "result_median.csv"), val=ensemble_cfg.val_set)
+    res_median = score_M4(predictions=preds_median, df_results_name=os.path.join(experiment_folder, "result_median_val.csv"), val=ensemble_cfg.val_set)
     print("scoring mean")
-    res_mean = score_M4(predictions=preds_mean, df_results_name=os.path.join(experiment_folder, "result_mean.csv"), val=ensemble_cfg.val_set)
+    res_mean = score_M4(predictions=preds_mean, df_results_name=os.path.join(experiment_folder, "result_mean_val.csv"), val=ensemble_cfg.val_set)
 
-    #df_median.to_csv(os.path.join(experiment_folder, "forecast_median.csv"))
-    #df_mean.to_csv(os.path.join(experiment_folder, "forecast_mean.csv"))
+    df_median.to_csv(os.path.join(experiment_folder, "forecast_median_val.csv"))
+    df_mean.to_csv(os.path.join(experiment_folder, "forecast_mean_val.csv"))
 
     print(res_median)
     print(res_mean)
