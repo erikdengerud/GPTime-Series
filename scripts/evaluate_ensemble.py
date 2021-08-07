@@ -19,7 +19,7 @@ def evaluate_ensemble(cfg_path):
     
     experiment_folder = os.path.join(ensemble_cfg.storage_folder, ensemble_cfg.ensemble_name)
     print(experiment_folder)
-    ensemble_members = glob.glob(os.path.join(*[experiment_folder, "**", "forecast_val.csv"]))
+    ensemble_members = glob.glob(os.path.join(*[experiment_folder, "**", "forecast.csv"]))
     print(ensemble_members)
     ensemble_members = [memb for memb in ensemble_members if "seasonal" not in memb]
     print(ensemble_members)
