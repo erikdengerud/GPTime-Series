@@ -15,8 +15,8 @@ from GPTime.model.train import train
 from GPTime.model.evaluate import evaluate
 from GPTime.model.finetune import finetune
 
-with open("GPTime/credentials.yml", "r") as ymlfile:
-    credentials = Box(yaml.safe_load(ymlfile))
+#with open("GPTime/credentials.yml", "r") as ymlfile:
+#    credentials = Box(yaml.safe_load(ymlfile))
 
 # source(credentials, small_sample=True)
 

@@ -1,12 +1,33 @@
+source_FRED: false
+source_M4: true
+
 path:
   FRED:
     meta: GPTime/data/meta/FRED/
     #raw: GPTime/data/raw/FRED/
     raw: /work/erikde/data/raw/FRED
   M4:
-    raw_train: GPTime/data/raw/M4/M4train/
-    raw_test: GPTime/data/raw/M4/M4test/
-    meta: GPTime/data/meta/M4/M4-info.csv
+    download:
+      train:
+        hourly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Hourly-train.csv
+        daily: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Daily-train.csv
+        weekly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Weekly-train.csv
+        monthly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Monthly-train.csv
+        quarterly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Quarterly-train.csv
+        yearly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Train/Yearly-train.csv
+      test:
+        hourly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Test/Hourly-test.csv
+        daily: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Test/Daily-test.csv
+        weekly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Test/Weekly-test.csv
+        monthly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Test/Monthly-test.csv
+        quarterly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Test/Quarterly-test.csv
+        yearly: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/Test/Yearly-test.csv
+      meta: https://raw.githubusercontent.com/Mcompetitions/M4-methods/master/Dataset/M4-info.csv
+
+    store:
+      raw_train: GPTime/data/raw/M4/M4train/
+      raw_test: GPTime/data/raw/M4/M4test/
+      meta: GPTime/data/meta/M4/
 api:
   FRED:
     limit: 115
