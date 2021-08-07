@@ -27,3 +27,5 @@ def source(cfg)->None:
             test_store_path=cfg.path.M4.store.raw_test,
             meta_store_path=cfg.path.M4.store.meta,
             )
+
+    logging.info("Sourcing ran.")
