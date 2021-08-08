@@ -2,7 +2,7 @@ import importlib
 import logging
 import torch
 from torch.utils.data import random_split
-#from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 import os
 import copy
 import numpy as np

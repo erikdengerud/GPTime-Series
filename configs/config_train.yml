@@ -7,12 +7,12 @@ patience: 20
 swa: False
 
 # Train Loop
-max_epochs: 200
+max_epochs: 100
 early_stop_tenacity: 50
 log_freq: 5
 clip_gradients: True
 tensorboard_log_dir: GPTime/models/runs/
-model_save_path:
+model_save_path: GPTime/models/
 
 # Dataset
 more_data: False
@@ -27,16 +27,16 @@ dataset_params:
   dataset_paths:
     #FRED: GPTime/data/processed/FRED3/
     #FRED_small: GPTime/data/processed/FRED_small
-    M4: GPTime/data/processed/M4
+    M4: GPTime/data/preprocessed/M4/
     #M4: /work/erikde/data/processed/M4/
     #FRED: /work/erikde/data/processed/FRED/
   frequencies:  
-    Y: False
-    Q: False
-    M: False
-    W: False
-    D: True
-    H: False
+    Y: true
+    Q: true
+    M: true
+    W: true
+    D: true
+    H: true
     #O: False
   min_lengths:
     Y: 9
@@ -61,7 +61,7 @@ scaling:
 # Dataloader
 train_set_size: 0.75 # 0-1
 num_tests_per_ts: 1
-scale: False
+scale: true
 dataloader_module: "torch.utils.data"
 dataloader_name: "DataLoader"
 dataloader_params:
@@ -74,7 +74,7 @@ seasonal_init: False
 model_module: "GPTime.networks.mlp"
 model_name: "MLP"
 model_params_mlp:
-  in_features: 30
+  in_features: 50
   out_features: 1
   num_layers: 10
   n_hidden: 1024

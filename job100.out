@@ -1,0 +1,48 @@
+2021-08-08 15:37:02,092 - GPTime.model.train - INFO - Device: cuda:0
+2021-08-08 15:37:02,239 - GPTime.networks.mlp - DEBUG - Input size of model: 50.
+2021-08-08 15:37:02,239 - GPTime.networks.mlp - DEBUG - Number of layers: 10.
+2021-08-08 15:37:02,240 - GPTime.networks.mlp - DEBUG - Number of hidden units: 1024.
+2021-08-08 15:37:02,240 - GPTime.networks.mlp - DEBUG - Using frequency encoding: True
+2021-08-08 15:37:04,535 - GPTime.model.train - INFO - Number of learnable parameters: 8456193
+2021-08-08 15:37:04,541 - GPTime.model.train - INFO - 10 steps in the learning schedule if None
+2021-08-08 15:37:04,541 - GPTime.model.train - INFO - Using learning rate sheduler: None
+2021-08-08 15:37:04,541 - GPTime.model.train - INFO - Not using a validation set. Training on the full dataset.
+2021-08-08 15:37:04,542 - GPTime.model.data - INFO - Loading dir: GPTime/data/preprocessed/M4/dir0000
+2021-08-08 15:37:35,767 - GPTime.model.data - INFO - Total of 100000 time series in memory.
+2021-08-08 15:37:35,767 - GPTime.model.data - INFO - Frequencies: {'Y': True, 'Q': True, 'M': True, 'W': True, 'D': True, 'H': True}.
+2021-08-08 15:37:35,773 - GPTime.model.train - INFO - seasonal init: False
+2021-08-08 15:37:35,773 - GPTime.model.train - INFO - Training model.
+2021-08-08 15:37:35,773 - GPTime.model.train - INFO - Length of dataset: 100000
+/cluster/home/erikde/master_thesis/debug/GPTime-Series/GPTime/model/train.py:253: UserWarning: This overload of nonzero is deprecated:
+	nonzero()
+Consider using one of the following signatures instead:
+	nonzero(*, bool as_tuple) (Triggered internally at  ../torch/csrc/utils/python_arg_parser.cpp:882.)
+  if len((max_scale == 0).nonzero()) > 0:
+2021-08-08 15:38:19,406 - GPTime.model.train - INFO - Epoch 5     [Avg. Loss, Loss]: [13.4830, 7.5256], 0
+2021-08-08 15:39:00,994 - GPTime.model.train - INFO - Changed learning rate. Current lr = 0.0005
+2021-08-08 15:39:00,995 - GPTime.model.train - INFO - Epoch 10    [Avg. Loss, Loss]: [7.2445, 7.1235], 0
+2021-08-08 15:39:41,872 - GPTime.model.train - INFO - Epoch 15    [Avg. Loss, Loss]: [6.7642, 6.7841], 0
+2021-08-08 15:40:21,207 - GPTime.model.train - INFO - Changed learning rate. Current lr = 0.00025
+2021-08-08 15:40:21,207 - GPTime.model.train - INFO - Epoch 20    [Avg. Loss, Loss]: [6.7031, 6.6645], 0
+2021-08-08 15:41:00,377 - GPTime.model.train - INFO - Epoch 25    [Avg. Loss, Loss]: [6.5118, 6.5429], 0
+2021-08-08 15:41:41,879 - GPTime.model.train - INFO - Changed learning rate. Current lr = 0.000125
+2021-08-08 15:41:41,897 - GPTime.model.train - INFO - Epoch 30    [Avg. Loss, Loss]: [6.4710, 6.5113], 0
+2021-08-08 15:42:23,237 - GPTime.model.train - INFO - Epoch 35    [Avg. Loss, Loss]: [6.3861, 6.3701], 0
+2021-08-08 15:43:04,769 - GPTime.model.train - INFO - Changed learning rate. Current lr = 6.25e-05
+2021-08-08 15:43:04,773 - GPTime.model.train - INFO - Epoch 40    [Avg. Loss, Loss]: [6.3521, 6.3739], 0
+2021-08-08 15:43:46,224 - GPTime.model.train - INFO - Epoch 45    [Avg. Loss, Loss]: [6.2963, 6.3281], 0
+2021-08-08 15:44:27,770 - GPTime.model.train - INFO - Changed learning rate. Current lr = 3.125e-05
+2021-08-08 15:44:27,772 - GPTime.model.train - INFO - Epoch 50    [Avg. Loss, Loss]: [6.2616, 6.2502], 0
+2021-08-08 15:45:09,398 - GPTime.model.train - INFO - Epoch 55    [Avg. Loss, Loss]: [6.2419, 6.2519], 0
+2021-08-08 15:45:50,909 - GPTime.model.train - INFO - Changed learning rate. Current lr = 1.5625e-05
+2021-08-08 15:45:50,911 - GPTime.model.train - INFO - Epoch 60    [Avg. Loss, Loss]: [6.2409, 6.2105], 0
+2021-08-08 15:46:32,608 - GPTime.model.train - INFO - Epoch 65    [Avg. Loss, Loss]: [6.2405, 6.1950], 0
+2021-08-08 15:47:14,257 - GPTime.model.train - INFO - Changed learning rate. Current lr = 7.8125e-06
+2021-08-08 15:47:14,257 - GPTime.model.train - INFO - Epoch 70    [Avg. Loss, Loss]: [6.2006, 6.2316], 0
+2021-08-08 15:47:55,823 - GPTime.model.train - INFO - Epoch 75    [Avg. Loss, Loss]: [6.2268, 6.2194], 0
+2021-08-08 15:48:37,473 - GPTime.model.train - INFO - Changed learning rate. Current lr = 3.90625e-06
+2021-08-08 15:48:37,474 - GPTime.model.train - INFO - Epoch 80    [Avg. Loss, Loss]: [6.2047, 6.2299], 0
+2021-08-08 15:49:18,908 - GPTime.model.train - INFO - Epoch 85    [Avg. Loss, Loss]: [6.1936, 6.1899], 0
+2021-08-08 15:50:00,505 - GPTime.model.train - INFO - Changed learning rate. Current lr = 1.953125e-06
+2021-08-08 15:50:00,505 - GPTime.model.train - INFO - Epoch 90    [Avg. Loss, Loss]: [6.2195, 6.2065], 0
+2021-08-08 15:50:42,094 - GPTime.model.train - INFO - Epoch 95    [Avg. Loss, Loss]: [6.2097, 6.1685], 0

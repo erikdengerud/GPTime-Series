@@ -1,25 +1,32 @@
-use_local: True
-raw_data_folder: GPTime/data/raw/FRED
-account_url: https://tsdatasets.blob.core.windows.net/
-container_name: fred
-
+# Common
 samples_per_json: 2000
 files_per_folder: 100
 
+# M4
+M4:
+  raw_train: GPTime/data/raw/M4/M4train/
+  store_path: GPTime/data/preprocessed/M4/
+
+# FRED
+FRED: 
+  raw_data_folder: GPTime/data/raw/FRED
+  min_lengths:
+      yearly: 19
+      quarterly: 24
+      monthly: 60
+      weekly: 93
+      daily: 107
+      hourly: 748
+      other: 50
+
+  remove_zero: True
+  zero_treshold: 0.5
+  num_distinct: 5
+
+# Old
 path:
   FRED: GPTime/data/processed/FRED3/
   #FRED_small: /work/erikde/data/processed/FRED_small
-  M4: /work/erikde/data/processed/M4/
+  #M4: /work/erikde/data/processed/M4/
+  M4: GPTime/data/preprocessed/M4/
 
-min_lengths:
-    yearly: 19
-    quarterly: 24
-    monthly: 60
-    weekly: 93
-    daily: 107
-    hourly: 748
-    other: 50
-
-remove_zero: True
-zero_treshold: 0.5
-num_distinct: 5

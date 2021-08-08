@@ -1,0 +1,76 @@
+2021-08-08 15:22:41,994 - GPTime.model.train - INFO - Device: cuda:0
+2021-08-08 15:22:42,148 - GPTime.networks.mlp - DEBUG - Input size of model: 50.
+2021-08-08 15:22:42,148 - GPTime.networks.mlp - DEBUG - Number of layers: 10.
+2021-08-08 15:22:42,148 - GPTime.networks.mlp - DEBUG - Number of hidden units: 1024.
+2021-08-08 15:22:42,148 - GPTime.networks.mlp - DEBUG - Using frequency encoding: True
+2021-08-08 15:22:44,289 - GPTime.model.train - INFO - Number of learnable parameters: 8456193
+2021-08-08 15:22:44,295 - GPTime.model.train - INFO - 10 steps in the learning schedule if None
+2021-08-08 15:22:44,295 - GPTime.model.train - INFO - Using learning rate sheduler: None
+2021-08-08 15:22:44,295 - GPTime.model.train - INFO - Not using a validation set. Training on the full dataset.
+2021-08-08 15:22:44,297 - GPTime.model.data - INFO - Loading dir: GPTime/data/preprocessed/M4/dir0000
+2021-08-08 15:23:17,216 - GPTime.model.data - INFO - Total of 100000 time series in memory.
+2021-08-08 15:23:17,217 - GPTime.model.data - INFO - Frequencies: {'Y': True, 'Q': True, 'M': True, 'W': True, 'D': True, 'H': True}.
+2021-08-08 15:23:17,220 - GPTime.model.train - INFO - seasonal init: False
+2021-08-08 15:23:17,220 - GPTime.model.train - INFO - Training model.
+2021-08-08 15:23:17,220 - GPTime.model.train - INFO - Length of dataset: 100000
+/cluster/home/erikde/master_thesis/debug/GPTime-Series/GPTime/model/train.py:253: UserWarning: This overload of nonzero is deprecated:
+	nonzero()
+Consider using one of the following signatures instead:
+	nonzero(*, bool as_tuple) (Triggered internally at  ../torch/csrc/utils/python_arg_parser.cpp:882.)
+  if len((max_scale == 0).nonzero()) > 0:
+2021-08-08 15:24:33,421 - GPTime.model.train - INFO - Epoch 10    [Avg. Loss, Loss]: [10.4449, 7.1693], 0
+2021-08-08 15:25:46,734 - GPTime.model.train - INFO - Changed learning rate. Current lr = 0.0005
+2021-08-08 15:25:46,734 - GPTime.model.train - INFO - Epoch 20    [Avg. Loss, Loss]: [7.0434, 6.9223], 0
+2021-08-08 15:26:59,983 - GPTime.model.train - INFO - Epoch 30    [Avg. Loss, Loss]: [6.6625, 6.6573], 0
+2021-08-08 15:28:13,220 - GPTime.model.train - INFO - Changed learning rate. Current lr = 0.00025
+2021-08-08 15:28:13,221 - GPTime.model.train - INFO - Epoch 40    [Avg. Loss, Loss]: [6.5950, 6.5977], 0
+2021-08-08 15:29:26,435 - GPTime.model.train - INFO - Epoch 50    [Avg. Loss, Loss]: [6.4055, 6.3881], 0
+2021-08-08 15:30:39,788 - GPTime.model.train - INFO - Changed learning rate. Current lr = 0.000125
+2021-08-08 15:30:39,788 - GPTime.model.train - INFO - Epoch 60    [Avg. Loss, Loss]: [6.3848, 6.3948], 0
+2021-08-08 15:31:53,086 - GPTime.model.train - INFO - Epoch 70    [Avg. Loss, Loss]: [6.2566, 6.2746], 0
+2021-08-08 15:33:06,398 - GPTime.model.train - INFO - Changed learning rate. Current lr = 6.25e-05
+2021-08-08 15:33:06,399 - GPTime.model.train - INFO - Epoch 80    [Avg. Loss, Loss]: [6.2416, 6.2343], 0
+2021-08-08 15:34:19,733 - GPTime.model.train - INFO - Epoch 90    [Avg. Loss, Loss]: [6.1770, 6.1839], 0
+2021-08-08 15:35:33,118 - GPTime.model.train - INFO - Changed learning rate. Current lr = 3.125e-05
+2021-08-08 15:35:33,118 - GPTime.model.train - INFO - Epoch 100   [Avg. Loss, Loss]: [6.1471, 6.0919], 0
+2021-08-08 15:36:46,398 - GPTime.model.train - INFO - Epoch 110   [Avg. Loss, Loss]: [6.1448, 6.0977], 0
+2021-08-08 15:37:59,388 - GPTime.model.train - INFO - Changed learning rate. Current lr = 1.5625e-05
+2021-08-08 15:37:59,391 - GPTime.model.train - INFO - Epoch 120   [Avg. Loss, Loss]: [6.1278, 6.1022], 0
+2021-08-08 15:39:12,214 - GPTime.model.train - INFO - Epoch 130   [Avg. Loss, Loss]: [6.1206, 6.1214], 0
+2021-08-08 15:40:25,194 - GPTime.model.train - INFO - Changed learning rate. Current lr = 7.8125e-06
+2021-08-08 15:40:25,200 - GPTime.model.train - INFO - Epoch 140   [Avg. Loss, Loss]: [6.0968, 6.1024], 0
+2021-08-08 15:41:38,034 - GPTime.model.train - INFO - Epoch 150   [Avg. Loss, Loss]: [6.0923, 6.0307], 0
+2021-08-08 15:42:50,929 - GPTime.model.train - INFO - Changed learning rate. Current lr = 3.90625e-06
+2021-08-08 15:42:50,932 - GPTime.model.train - INFO - Epoch 160   [Avg. Loss, Loss]: [6.0917, 6.0791], 0
+2021-08-08 15:44:03,756 - GPTime.model.train - INFO - Epoch 170   [Avg. Loss, Loss]: [6.0801, 6.1110], 0
+2021-08-08 15:45:16,852 - GPTime.model.train - INFO - Changed learning rate. Current lr = 1.953125e-06
+2021-08-08 15:45:16,856 - GPTime.model.train - INFO - Epoch 180   [Avg. Loss, Loss]: [6.0867, 6.0932], 0
+2021-08-08 15:46:29,817 - GPTime.model.train - INFO - Epoch 190   [Avg. Loss, Loss]: [6.0742, 6.0801], 0
+2021-08-08 15:47:42,745 - GPTime.model.train - INFO - Changed learning rate. Current lr = 9.765625e-07
+2021-08-08 15:47:42,748 - GPTime.model.train - INFO - Epoch 200   [Avg. Loss, Loss]: [6.0864, 6.0953], 0
+2021-08-08 15:48:59,095 - GPTime.model.train - INFO - {'daily': {'MASE': 3.120931051096843, 'SMAPE': 2.934958661075796, 'OWA': 1.0127164664793256}, 'hourly': {'MASE': 4.103283213574331, 'SMAPE': 21.390456354271745, 'OWA': 0.4362536531307981}, 'monthly': {'MASE': 0.9169427171102649, 'SMAPE': 12.595239852153881, 'OWA': 0.9232008835343196}, 'quarterly': {'MASE': 1.1171755253099096, 'SMAPE': 9.729661209313917, 'OWA': 0.8379059534274494}, 'weekly': {'MASE': 2.500126666924301, 'SMAPE': 8.76567419901864, 'OWA': 0.90795636267336}, 'yearly': {'MASE': 3.0320608242444673, 'SMAPE': 13.335076351548013, 'OWA': 0.6673364930136222}, 'GLOBAL': {'MASE': 1.5635134226318523, 'SMAPE': 11.69198734241008, 'OWA': 0.7962110388068364}}
+2021-08-08 15:48:59,099 - GPTime.run - ERROR - Task train failed
+Traceback (most recent call last):
+  File "/cluster/apps/eb/software/Python/3.8.6-GCCcore-10.2.0/lib/python3.8/runpy.py", line 194, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/cluster/apps/eb/software/Python/3.8.6-GCCcore-10.2.0/lib/python3.8/runpy.py", line 87, in _run_code
+    exec(code, run_globals)
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/GPTime/__main__.py", line 5, in <module>
+    main_cli()
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/venv/lib/python3.8/site-packages/click/core.py", line 1137, in __call__
+    return self.main(*args, **kwargs)
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/venv/lib/python3.8/site-packages/click/core.py", line 1062, in main
+    rv = self.invoke(ctx)
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/venv/lib/python3.8/site-packages/click/core.py", line 1404, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/venv/lib/python3.8/site-packages/click/core.py", line 763, in invoke
+    return __callback(*args, **kwargs)
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/GPTime/run.py", line 52, in main_cli
+    main(task, task_cfg)
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/GPTime/run.py", line 35, in main
+    tasks[task](task_cfg)
+  File "/cluster/home/erikde/master_thesis/debug/GPTime-Series/GPTime/model/train.py", line 362, in train
+    os.makedirs(os.path.join(train_cfg.model_save_path, train_cfg.name))
+  File "/cluster/apps/eb/software/Python/3.8.6-GCCcore-10.2.0/lib/python3.8/os.py", line 223, in makedirs
+    mkdir(name, mode)
+FileExistsError: [Errno 17] File exists: 'GPTime/models/test_name'
